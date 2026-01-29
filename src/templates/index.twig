@@ -1,0 +1,120 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'AI Search' %}
+
+{% block content %}
+    {# Section 1: Index Status #}
+    <h2>Index Status</h2>
+
+    <table class="data fullwidth">
+        <tbody>
+            <tr>
+                <th class="light">Indexed Entries</th>
+                <td>{{ stats.entryCount }}</td>
+            </tr>
+            <tr>
+                <th class="light">Total Chunks</th>
+                <td>{{ stats.chunkCount }}</td>
+            </tr>
+            <tr>
+                <th class="light">Database Status</th>
+                <td>
+                    {% if stats.isConnected %}
+                        <span class="status on"></span> Connected
+                    {% else %}
+                        <span class="status off"></span> Disconnected
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th class="light">Last Updated</th>
+                <td>
+                    {% if stats.lastIndexed %}
+                        {{ stats.lastIndexed|date('M j, Y g:i A') }}
+                    {% else %}
+                        <span class="light">Never</span>
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    {# Section 3: API Endpoints Reference #}
+    <h2>API Endpoints</h2>
+    <p class="light">Use these endpoints to integrate AI Search into your site.</p>
+
+    <table class="data fullwidth">
+        <thead>
+            <tr>
+                <th>Endpoint</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>GET /api/hybrid-search?q=query</code></td>
+                <td>Hybrid search combining semantic understanding with keyword matching. Best for general search.</td>
+            </tr>
+            <tr>
+                <td><code>GET /api/craft-search?q=query</code></td>
+                <td>Standard Craft CMS search. Uses native Craft search index.</td>
+            </tr>
+            <tr>
+                <td><code>GET /api/rag-search?q=query</code></td>
+                <td>AI-powered search that generates intelligent summaries and answers based on your content.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    {# Section 4: Getting Started #}
+    <h2>Getting Started</h2>
+    <p class="light">AI Search enhances your Craft CMS site with intelligent, AI-powered search capabilities. It understands the meaning behind queries, not just keywords, to deliver more relevant results.</p>
+
+    <p><strong>Setup Checklist</strong></p>
+    <table class="data fullwidth collapsible">
+        <tbody>
+            <tr>
+                <td class="thin centeralign">
+                    {% if settings.openaiApiKey %}
+                        <span class="success" data-icon="check" aria-label="Complete"></span>
+                    {% else %}
+                        <span class="error" data-icon="error" aria-label="Required"></span>
+                    {% endif %}
+                </td>
+                <td><a href="{{ cpUrl('ai-search/settings') }}">Configure your OpenAI API key</a></td>
+            </tr>
+            <tr>
+                <td class="thin centeralign">
+                    {% if stats.isConnected %}
+                        <span class="success" data-icon="check" aria-label="Complete"></span>
+                    {% else %}
+                        <span class="error" data-icon="error" aria-label="Required"></span>
+                    {% endif %}
+                </td>
+                <td><a href="{{ cpUrl('ai-search/settings') }}">Connect your vector database</a></td>
+            </tr>
+            <tr>
+                <td class="thin centeralign">
+                    {% if stats.entryCount > 0 %}
+                        <span class="success" data-icon="check" aria-label="Complete"></span>
+                    {% else %}
+                        <span class="warning" data-icon="alert" aria-label="Pending"></span>
+                    {% endif %}
+                </td>
+                <td><a href="{{ cpUrl('ai-search/data-sync') }}">Index your content</a></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p><strong>How It Works</strong></p>
+    <p class="light">
+        1. Your content is converted into embeddings using OpenAI<br>
+        2. These embeddings are stored in a PostgreSQL database with pgvector<br>
+        3. When users search, their query is also converted to an embedding<br>
+        4. The system finds content with similar meanings, not just keywords
+    </p>
+{% endblock %}

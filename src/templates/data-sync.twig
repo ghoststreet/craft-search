@@ -1,0 +1,148 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Data Sync' %}
+{% set selectedSubnavItem = 'data-sync' %}
+
+{% block content %}
+    <h2>Content Indexing</h2>
+    <p class="light">AI Search automatically indexes your content when entries are saved. Use this page to view the current index status and rebuild it if needed.</p>
+
+    <p class="light">All entries with valid URLs are indexed (excludes drafts and revisions), including matrix blocks and related content. Long content is automatically split into searchable chunks.</p>
+
+    <hr>
+
+    <h2>Index Statistics</h2>
+
+    {% if stats.isConnected %}
+        <table class="data fullwidth">
+            <tbody>
+                <tr>
+                    <th class="light">Database Status</th>
+                    <td><span class="status on"></span> Connected</td>
+                </tr>
+                <tr>
+                    <th class="light">Indexed Entries</th>
+                    <td id="stat-entries">{{ stats.entryCount|number_format }}</td>
+                </tr>
+                <tr>
+                    <th class="light">Total Chunks</th>
+                    <td id="stat-chunks">{{ stats.chunkCount|number_format }}</td>
+                </tr>
+                <tr>
+                    <th class="light">Last Updated</th>
+                    <td>
+                        {% if stats.lastIndexed %}
+                            {{ stats.lastIndexed|date('F j, Y g:i a') }}
+                        {% else %}
+                            Never
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    {% else %}
+        <div class="pane">
+            <p class="error">
+                <span class="status off"></span>
+                <strong>Database not connected.</strong>
+                {% if stats.error %}
+                    {{ stats.error }}
+                {% else %}
+                    Please configure your database connection in the Database settings.
+                {% endif %}
+            </p>
+        </div>
+    {% endif %}
+
+    <div id="reindex-progress" style="display: none; margin-top: 16px;">
+        <div class="pane">
+            <p><strong>Syncing in progress...</strong></p>
+            <p class="light">Entries indexed: <span id="progress-entries">0</span> | Chunks: <span id="progress-chunks">0</span> | Queue remaining: <span id="progress-queue">0</span></p>
+        </div>
+    </div>
+
+    <hr>
+
+    <h2>Sync Search Index</h2>
+    <p class="light">This will re-index all entries and remove stale vectors. Existing search data remains available throughout the process.</p>
+
+    <p class="warning with-icon">Every entry will be re-indexed, which uses your OpenAI API quota.</p>
+
+    <form method="post" id="reindex-form">
+        {{ csrfInput() }}
+        {{ actionInput('ai-search/data-sync/wipe-and-reindex') }}
+
+        <div class="buttons">
+            <button type="submit" class="btn submit" id="reindex-btn" onclick="return confirm('Are you sure you want to sync the entire search index? Every entry will be re-indexed.')">
+                Sync Entire Index
+            </button>
+        </div>
+    </form>
+{% endblock %}
+
+{% js %}
+(function() {
+    function startPolling() {
+        var progress = document.getElementById('reindex-progress');
+        var btn = document.getElementById('reindex-btn');
+        if (progress) progress.style.display = 'block';
+        if (btn) btn.disabled = true;
+
+        var peakEntries = 0;
+        var peakChunks = 0;
+
+        var interval = setInterval(function() {
+            Craft.sendActionRequest('POST', 'ai-search/data-sync/get-stats')
+                .then(function(response) {
+                    var data = response.data;
+                    if (!data.success) return;
+
+                    var entries = document.getElementById('progress-entries');
+                    var chunks = document.getElementById('progress-chunks');
+                    var queue = document.getElementById('progress-queue');
+                    var statEntries = document.getElementById('stat-entries');
+                    var statChunks = document.getElementById('stat-chunks');
+
+                    if (data.queueRemaining === 0) {
+                        // Show final actual counts on completion
+                        clearInterval(interval);
+                        if (entries) entries.textContent = data.entryCount.toLocaleString();
+                        if (chunks) chunks.textContent = data.chunkCount.toLocaleString();
+                        if (statEntries) statEntries.textContent = data.entryCount.toLocaleString();
+                        if (statChunks) statChunks.textContent = data.chunkCount.toLocaleString();
+                        var progress = document.getElementById('reindex-progress');
+                        if (progress) {
+                            progress.innerHTML = '<div class="pane"><p><strong>Sync complete.</strong></p></div>';
+                        }
+                        if (btn) btn.disabled = false;
+                        return;
+                    }
+
+                    // Only show increasing counts to avoid flickering from delete-then-reinsert
+                    peakEntries = Math.max(peakEntries, data.entryCount);
+                    peakChunks = Math.max(peakChunks, data.chunkCount);
+
+                    if (entries) entries.textContent = peakEntries.toLocaleString();
+                    if (chunks) chunks.textContent = peakChunks.toLocaleString();
+                    if (queue) queue.textContent = data.queueRemaining.toLocaleString();
+                    if (statEntries) statEntries.textContent = peakEntries.toLocaleString();
+                    if (statChunks) statChunks.textContent = peakChunks.toLocaleString();
+                })
+                .catch(function() {});
+        }, 3000);
+    }
+
+    // Start polling if sync was just triggered or if there are queued jobs
+    {% if syncStarted %}
+        startPolling();
+    {% else %}
+        Craft.sendActionRequest('POST', 'ai-search/data-sync/get-stats')
+            .then(function(response) {
+                if (response.data.success && response.data.queueRemaining > 0) {
+                    startPolling();
+                }
+            })
+            .catch(function() {});
+    {% endif %}
+})();
+{% endjs %}

@@ -1,0 +1,557 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Settings' %}
+{% set fullPageForm = true %}
+
+{% set tabs = {
+    'tab-api': { label: 'API', url: '#tab-api' },
+    'tab-database': { label: 'Database', url: '#tab-database' },
+    'tab-hybrid-search': { label: 'Hybrid Search', url: '#tab-hybrid-search' },
+    'tab-rag-search': { label: 'RAG Search', url: '#tab-rag-search' },
+    'tab-advanced': { label: 'Advanced', url: '#tab-advanced' },
+} %}
+
+{% import '_includes/forms.twig' as forms %}
+
+{% block content %}
+    <input type="hidden" name="action" value="ai-search/settings/save">
+    {{ redirectInput('ai-search/settings') }}
+
+        {# ── API Tab ── #}
+        <div id="tab-api">
+            <h2>OpenAI Configuration</h2>
+            <p class="light">Connect to OpenAI to enable AI-powered search features. Your API key is used to generate embeddings for your content and power intelligent search.</p>
+
+            {% namespace 'settings' %}
+                {{ forms.autosuggestField({
+                    label: 'API Key',
+                    instructions: 'Your OpenAI API key. You can find this in your <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI dashboard</a>. We recommend storing it in an environment variable for security.',
+                    id: 'openaiApiKey',
+                    name: 'openaiApiKey',
+                    value: settings.openaiApiKey,
+                    suggestEnvVars: true,
+                    required: true,
+                    errors: settings.getErrors('openaiApiKey'),
+                }) }}
+            {% endnamespace %}
+
+            <div class="buttons" style="margin-bottom: 24px;">
+                <button type="button" class="btn" id="test-api-key-btn">Test API Key</button>
+                <span id="test-api-key-result" style="margin-left: 8px;"></span>
+            </div>
+
+            <hr>
+
+            <h2>API Authentication</h2>
+            <p class="light">Protect your search endpoints with a token. When set, all API requests must include the token via <code>Authorization: Bearer &lt;token&gt;</code> header or <code>?token=</code> query parameter. Leave empty to allow unauthenticated access.</p>
+
+            {% namespace 'settings' %}
+                {{ forms.autosuggestField({
+                    label: 'API Token',
+                    instructions: 'A secret token to authenticate API requests. We recommend storing it in an environment variable.',
+                    id: 'apiToken',
+                    name: 'apiToken',
+                    value: settings.apiToken,
+                    suggestEnvVars: true,
+                    errors: settings.getErrors('apiToken'),
+                }) }}
+            {% endnamespace %}
+        </div>
+
+        {# ── Database Tab ── #}
+        <div id="tab-database" class="hidden">
+            <h2>Vector Database Connection</h2>
+            <p class="light">Connect to a PostgreSQL database with the pgvector extension to store your searchable content. We recommend <a href="https://supabase.com" target="_blank">Supabase</a> for easy setup.</p>
+
+            <p><strong>Setup Requirements</strong></p>
+            <p class="light">
+                - A PostgreSQL database (version 15+ recommended)<br>
+                - The <code>pgvector</code> extension must be enabled<br>
+                - For Supabase: Run <code>CREATE EXTENSION IF NOT EXISTS vector;</code> in the SQL Editor
+            </p>
+
+            <hr>
+
+            {% namespace 'settings' %}
+            {{ forms.autosuggestField({
+                label: 'Host',
+                instructions: 'Your database server address. For Supabase, this looks like: <code>db.xxxxxxxxxxxx.supabase.co</code>. You can also paste a full connection URL here (e.g., <code>postgresql://user:pass@host:port/db</code>).',
+                id: 'postgresqlHost',
+                name: 'postgresqlHost',
+                value: settings.postgresqlHost,
+                suggestEnvVars: true,
+                placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST',
+                errors: settings.getErrors('postgresqlHost'),
+            }) }}
+
+            {{ forms.autosuggestField({
+                label: 'Port',
+                instructions: 'Usually <code>5432</code> for direct connections. Supabase pooled connections use <code>6543</code>.',
+                id: 'postgresqlPort',
+                name: 'postgresqlPort',
+                value: settings.postgresqlPort,
+                suggestEnvVars: true,
+                placeholder: '5432',
+                errors: settings.getErrors('postgresqlPort'),
+            }) }}
+
+            {{ forms.autosuggestField({
+                label: 'Database Name',
+                instructions: 'The name of your database. For Supabase, this is usually <code>postgres</code>.',
+                id: 'postgresqlDatabase',
+                name: 'postgresqlDatabase',
+                value: settings.postgresqlDatabase,
+                suggestEnvVars: true,
+                placeholder: 'postgres',
+                errors: settings.getErrors('postgresqlDatabase'),
+            }) }}
+
+            {{ forms.autosuggestField({
+                label: 'Username',
+                instructions: 'Your database username. For Supabase, this is usually <code>postgres</code>.',
+                id: 'postgresqlUser',
+                name: 'postgresqlUser',
+                value: settings.postgresqlUser,
+                suggestEnvVars: true,
+                placeholder: 'postgres',
+                errors: settings.getErrors('postgresqlUser'),
+            }) }}
+
+            {{ forms.autosuggestField({
+                label: 'Password',
+                instructions: 'Your database password. We strongly recommend storing this in an environment variable.',
+                id: 'postgresqlPassword',
+                name: 'postgresqlPassword',
+                value: settings.postgresqlPassword,
+                suggestEnvVars: true,
+                placeholder: '$SUPABASE_DB_PASSWORD',
+                errors: settings.getErrors('postgresqlPassword'),
+            }) }}
+
+            {{ forms.selectField({
+                label: 'SSL Mode',
+                instructions: 'How to secure the database connection. Use "Require" for cloud-hosted databases like Supabase.',
+                id: 'postgresqlSslMode',
+                name: 'postgresqlSslMode',
+                value: settings.postgresqlSslMode,
+                options: [
+                    { label: 'Disable - No encryption (local development only)', value: 'disable' },
+                    { label: 'Allow - Use encryption if available', value: 'allow' },
+                    { label: 'Prefer - Try encryption first', value: 'prefer' },
+                    { label: 'Require (Recommended) - Always use encryption', value: 'require' },
+                    { label: 'Verify CA - Verify server certificate', value: 'verify-ca' },
+                    { label: 'Verify Full - Verify certificate and hostname', value: 'verify-full' },
+                ],
+                required: true,
+                errors: settings.getErrors('postgresqlSslMode'),
+            }) }}
+            {% endnamespace %}
+
+            <div class="buttons">
+                <button type="button" class="btn" id="test-db-btn">Test Connection</button>
+                <span id="test-db-result" style="margin-left: 8px;"></span>
+            </div>
+        </div>
+
+        {# ── Hybrid Search Tab ── #}
+        <div id="tab-hybrid-search" class="hidden">
+            <h2>Embedding Model</h2>
+            <p class="light">Choose the AI model for generating content embeddings. Changing this requires re-indexing your content.</p>
+
+            {% namespace 'settings' %}
+            {{ forms.selectField({
+                label: 'Embedding Model',
+                instructions: 'The OpenAI model used to convert content into searchable embeddings.',
+                id: 'hybridEmbeddingModel',
+                name: 'hybridEmbeddingModel',
+                value: settings.hybridEmbeddingModel,
+                options: [
+                    { label: 'text-embedding-3-small (Recommended)', value: 'text-embedding-3-small' },
+                    { label: 'text-embedding-3-large', value: 'text-embedding-3-large' },
+                ],
+                required: true,
+                errors: settings.getErrors('hybridEmbeddingModel'),
+            }) }}
+
+            {{ forms.selectField({
+                label: 'Vector Dimensions',
+                instructions: 'Number of dimensions for embedding vectors. Lower dimensions are faster and cheaper. <strong>Changing this requires a full reindex.</strong>',
+                id: 'vectorDimensions',
+                name: 'vectorDimensions',
+                value: settings.vectorDimensions,
+                options: [
+                    { label: '512 (fastest, lowest quality)', value: 512 },
+                    { label: '1024 (balanced)', value: 1024 },
+                    { label: '1536 (default)', value: 1536 },
+                    { label: '3072 (text-embedding-3-large only)', value: 3072 },
+                ],
+                errors: settings.getErrors('vectorDimensions'),
+            }) }}
+
+            <hr>
+
+            <h2>Search Tuning</h2>
+            <p class="light">Fine-tune how search results are ranked. These settings balance traditional keyword matching with AI-powered semantic understanding.</p>
+
+            {{ forms.textField({
+                label: 'Final Result Threshold',
+                instructions: 'Minimum combined score for a result to appear in final output. Higher values (0.85-0.95) show only very relevant results. Lower values (0.7-0.8) show more results but may include less relevant content. Range: 0-1, default: 0.9',
+                id: 'minimumSimilarityThreshold',
+                name: 'minimumSimilarityThreshold',
+                value: settings.minimumSimilarityThreshold,
+                type: 'number',
+                step: '0.01',
+                min: '0',
+                max: '1',
+                placeholder: '0.90',
+                required: true,
+                errors: settings.getErrors('minimumSimilarityThreshold'),
+            }) }}
+
+            <hr>
+
+            <h2>Result Ranking</h2>
+            <p class="light">Control how keyword matches and AI understanding are combined to rank results. The weights should add up to 1.0 for best results.</p>
+
+            {{ forms.textField({
+                label: 'AI Understanding Weight',
+                instructions: 'How much to favor results that match the meaning of the search, even without exact keywords. Higher values prioritize semantic matches. Range: 0-1, default: 0.3',
+                id: 'rrfSemanticWeight',
+                name: 'rrfSemanticWeight',
+                value: settings.rrfSemanticWeight,
+                type: 'number',
+                step: '0.1',
+                min: '0',
+                max: '1',
+                placeholder: '0.3',
+                required: true,
+                errors: settings.getErrors('rrfSemanticWeight'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Keyword Match Weight',
+                instructions: 'How much to favor results that contain the exact search words. Higher values prioritize traditional keyword matching. Range: 0-1, default: 0.7',
+                id: 'rrfBm25Weight',
+                name: 'rrfBm25Weight',
+                value: settings.rrfBm25Weight,
+                type: 'number',
+                step: '0.1',
+                min: '0',
+                max: '1',
+                placeholder: '0.7',
+                required: true,
+                errors: settings.getErrors('rrfBm25Weight'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Ranking Smoothness',
+                instructions: 'Technical parameter (RRF K constant) that controls how ranking scores decrease. Higher values give more weight to lower-ranked results. Most users can leave this at the default. Range: 1-1000, default: 60',
+                id: 'rrfK',
+                name: 'rrfK',
+                value: settings.rrfK,
+                type: 'number',
+                min: '1',
+                max: '1000',
+                placeholder: '60',
+                required: true,
+                errors: settings.getErrors('rrfK'),
+            }) }}
+            {% endnamespace %}
+        </div>
+
+        {# ── RAG Search Tab ── #}
+        <div id="tab-rag-search" class="hidden">
+            <h2>AI Search</h2>
+            <p class="light">Configure the AI-powered search that finds relevant content and generates intelligent summaries.</p>
+
+            {% namespace 'settings' %}
+            {{ forms.selectField({
+                label: 'Embedding Model',
+                instructions: 'The OpenAI model used to convert queries into searchable embeddings.',
+                id: 'ragEmbeddingModel',
+                name: 'ragEmbeddingModel',
+                value: settings.ragEmbeddingModel,
+                options: [
+                    { label: 'text-embedding-3-small (Recommended)', value: 'text-embedding-3-small' },
+                    { label: 'text-embedding-3-large', value: 'text-embedding-3-large' },
+                ],
+                required: true,
+                errors: settings.getErrors('ragEmbeddingModel'),
+            }) }}
+
+            {{ forms.selectField({
+                label: 'Reasoning Model',
+                instructions: 'Choose which OpenAI model powers the search assistant. Faster models cost less but may provide simpler answers.',
+                id: 'ragModel',
+                name: 'ragModel',
+                value: settings.ragModel,
+                options: [
+                    { label: 'gpt-5-nano (Recommended)', value: 'gpt-5-nano' },
+                    { label: 'gpt-4o-mini', value: 'gpt-4o-mini' },
+                    { label: 'gpt-3.5-turbo', value: 'gpt-3.5-turbo' },
+                    { label: 'gpt-4o', value: 'gpt-4o' },
+                    { label: 'gpt-4-turbo', value: 'gpt-4-turbo' },
+                ],
+                required: true,
+                errors: settings.getErrors('ragModel'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Response Creativity',
+                instructions: 'How creative should the AI be when generating summaries? Lower values (0.1-0.3) stick closely to your content. Higher values (0.7-1.0) allow more creative interpretation. We recommend keeping this low for factual accuracy. Range: 0-2, default: 0.3',
+                id: 'ragTemperature',
+                name: 'ragTemperature',
+                value: settings.ragTemperature,
+                type: 'number',
+                step: '0.1',
+                min: '0',
+                max: '2',
+                placeholder: '0.3',
+                required: true,
+                errors: settings.getErrors('ragTemperature'),
+            }) }}
+
+            <hr>
+
+            <h2>Custom Instructions</h2>
+            <p class="light">Add custom instructions that will be included with every search request. Use this to customize how the AI responds, what tone to use, or any specific guidelines for your content.</p>
+
+            {{ forms.textareaField({
+                label: 'Custom Prompt',
+                instructions: 'Optional instructions appended to the system prompt. Leave empty to use default behavior.',
+                id: 'ragCustomPrompt',
+                name: 'ragCustomPrompt',
+                value: settings.ragCustomPrompt,
+                rows: 6,
+                placeholder: 'Example: Always respond in a friendly, conversational tone. When discussing products, highlight their key benefits.',
+                errors: settings.getErrors('ragCustomPrompt'),
+            }) }}
+            {% endnamespace %}
+        </div>
+
+        {# ── Advanced Tab ── #}
+        <div id="tab-advanced" class="hidden">
+            <h2>Indexing Filter</h2>
+            <p class="light">Choose which sections to index. Leave empty to index all sections with URLs.</p>
+
+            {% namespace 'settings' %}
+            {% set allSections = craft.app.sections.allSections() %}
+            {% set sectionOptions = [] %}
+            {% for section in allSections %}
+                {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}
+            {% endfor %}
+
+            {{ forms.checkboxSelectField({
+                label: 'Indexable Sections',
+                instructions: 'Select which sections should be indexed for search. If none are selected, all sections with URLs will be indexed.',
+                id: 'indexableSections',
+                name: 'indexableSections',
+                values: settings.indexableSections,
+                options: sectionOptions,
+                errors: settings.getErrors('indexableSections'),
+            }) }}
+
+            <hr>
+
+            <h2>Display Settings</h2>
+
+            {{ forms.textField({
+                label: 'Result Preview Length',
+                instructions: 'Number of characters shown in search result previews. Range: 50-500, default: 200',
+                id: 'excerptLength',
+                name: 'excerptLength',
+                value: settings.excerptLength,
+                type: 'number',
+                min: '50',
+                max: '500',
+                placeholder: '200',
+                required: true,
+                errors: settings.getErrors('excerptLength'),
+            }) }}
+
+            <hr>
+
+            <h2>Content Chunking</h2>
+            <p class="light">Control how your content is split into searchable chunks. Smaller chunks provide more precise search results but may lose context. Larger chunks preserve context but may be less precise.</p>
+
+            {{ forms.textField({
+                label: 'Minimum Chunk Size',
+                instructions: 'Smallest content chunk size (in tokens) for indexing. Chunks smaller than this will be merged with adjacent content. Range: 10-500, default: 100',
+                id: 'minChunkTokens',
+                name: 'minChunkTokens',
+                value: settings.minChunkTokens,
+                type: 'number',
+                min: '10',
+                max: '500',
+                placeholder: '100',
+                required: true,
+                errors: settings.getErrors('minChunkTokens'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Target Chunk Size',
+                instructions: 'Ideal content chunk size for best search accuracy. The system aims to create chunks around this size. Range: 100-1000, default: 400',
+                id: 'targetChunkTokens',
+                name: 'targetChunkTokens',
+                value: settings.targetChunkTokens,
+                type: 'number',
+                min: '100',
+                max: '1000',
+                placeholder: '400',
+                required: true,
+                errors: settings.getErrors('targetChunkTokens'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Maximum Chunk Size',
+                instructions: 'Largest chunk size before forcing a split. Chunks larger than this will be split at sentence boundaries. Range: 200-2000, default: 600',
+                id: 'maxChunkTokens',
+                name: 'maxChunkTokens',
+                value: settings.maxChunkTokens,
+                type: 'number',
+                min: '200',
+                max: '2000',
+                placeholder: '600',
+                required: true,
+                errors: settings.getErrors('maxChunkTokens'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Chunk Overlap',
+                instructions: 'Token overlap between adjacent chunks. Overlap helps preserve context across chunk boundaries. Range: 0-200, default: 40',
+                id: 'overlapTokens',
+                name: 'overlapTokens',
+                value: settings.overlapTokens,
+                type: 'number',
+                min: '0',
+                max: '200',
+                placeholder: '40',
+                required: true,
+                errors: settings.getErrors('overlapTokens'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Chunking Threshold',
+                instructions: 'Content smaller than this (in tokens) will not be split into chunks. Range: 100-1000, default: 500',
+                id: 'chunkThresholdTokens',
+                name: 'chunkThresholdTokens',
+                value: settings.chunkThresholdTokens,
+                type: 'number',
+                min: '100',
+                max: '1000',
+                placeholder: '500',
+                required: true,
+                errors: settings.getErrors('chunkThresholdTokens'),
+            }) }}
+
+            <hr>
+
+            <h2>Cache Settings</h2>
+
+            {{ forms.textField({
+                label: 'Embedding Cache Duration',
+                instructions: 'How long embeddings are cached (in seconds). Longer cache times reduce API costs but delay updates. Range: 0-2592000, default: 604800 (7 days)',
+                id: 'embeddingCacheTtl',
+                name: 'embeddingCacheTtl',
+                value: settings.embeddingCacheTtl,
+                type: 'number',
+                min: '0',
+                max: '2592000',
+                placeholder: '604800',
+                required: true,
+                errors: settings.getErrors('embeddingCacheTtl'),
+            }) }}
+
+            <hr>
+
+            <h2>Hybrid Search Tuning</h2>
+
+            {{ forms.textField({
+                label: 'Semantic Pre-filter Threshold',
+                instructions: 'Minimum cosine similarity for a result to enter the hybrid ranking pipeline. This is applied before combining with keyword scores. Lower values allow more candidates into the ranking stage. Range: 0-1, default: 0.5',
+                id: 'minSemanticThreshold',
+                name: 'minSemanticThreshold',
+                value: settings.minSemanticThreshold,
+                type: 'number',
+                step: '0.1',
+                min: '0',
+                max: '1',
+                placeholder: '0.5',
+                required: true,
+                errors: settings.getErrors('minSemanticThreshold'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Single-Signal Penalty',
+                instructions: 'Score reduction for results that appear in only one search signal (either semantic OR keyword, but not both). Lower values penalize single-signal results more. Range: 0-1, default: 0.5',
+                id: 'singleSignalPenalty',
+                name: 'singleSignalPenalty',
+                value: settings.singleSignalPenalty,
+                type: 'number',
+                step: '0.1',
+                min: '0',
+                max: '1',
+                placeholder: '0.5',
+                required: true,
+                errors: settings.getErrors('singleSignalPenalty'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Maximum Semantic Results',
+                instructions: 'Maximum number of semantic results to retrieve before ranking. Higher values may improve result quality but increase processing time. Range: 10-500, default: 100',
+                id: 'maxSemanticResults',
+                name: 'maxSemanticResults',
+                value: settings.maxSemanticResults,
+                type: 'number',
+                min: '10',
+                max: '500',
+                placeholder: '100',
+                required: true,
+                errors: settings.getErrors('maxSemanticResults'),
+            }) }}
+            {% endnamespace %}
+        </div>
+
+{% endblock %}
+
+{% js %}
+(function() {
+    // Test Database Connection
+    var dbBtn = document.getElementById('test-db-btn');
+    if (dbBtn) {
+        dbBtn.addEventListener('click', function() {
+            var result = document.getElementById('test-db-result');
+            result.textContent = 'Testing...';
+            result.style.color = '';
+            Craft.sendActionRequest('POST', 'ai-search/settings/test-database-connection')
+                .then(function(response) {
+                    result.textContent = response.data.message;
+                    result.style.color = response.data.success ? 'green' : 'red';
+                })
+                .catch(function(error) {
+                    result.textContent = error.response?.data?.message || 'Connection failed';
+                    result.style.color = 'red';
+                });
+        });
+    }
+
+    // Test API Key
+    var apiBtn = document.getElementById('test-api-key-btn');
+    if (apiBtn) {
+        apiBtn.addEventListener('click', function() {
+            var result = document.getElementById('test-api-key-result');
+            result.textContent = 'Testing...';
+            result.style.color = '';
+            Craft.sendActionRequest('POST', 'ai-search/settings/test-api-key')
+                .then(function(response) {
+                    result.textContent = response.data.message;
+                    result.style.color = response.data.success ? 'green' : 'red';
+                })
+                .catch(function(error) {
+                    result.textContent = error.response?.data?.message || 'API key test failed';
+                    result.style.color = 'red';
+                });
+        });
+    }
+})();
+{% endjs %}
