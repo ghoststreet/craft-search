@@ -23,7 +23,7 @@ class SearchController extends Controller
 
     /**
      * Validate API token before processing any search action.
-     * Fails closed: if no token is configured in settings, all requests are rejected.
+     * If no token is configured in settings, requests are allowed unauthenticated.
      */
     public function beforeAction($action): bool
     {
@@ -34,7 +34,7 @@ class SearchController extends Controller
         $token = AiSearch::getInstance()->getSettings()->getApiToken();
 
         if (empty($token)) {
-            throw new UnauthorizedHttpException('API token is not configured.');
+            return true;
         }
 
         $request = Craft::$app->getRequest();
@@ -134,7 +134,7 @@ class SearchController extends Controller
      */
     public function actionRagSearch(): Response
     {
-        $params = RequestParameterExtractor::extractSearchParams(5);
+        $params = RequestParameterExtractor::extractSearchParams(20);
 
         if ($params['validationError'] !== null) {
             return $this->asJson($params['validationError'])->setStatusCode(400);

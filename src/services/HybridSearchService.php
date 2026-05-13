@@ -191,12 +191,16 @@ class HybridSearchService extends Component
         $bm25Weight = $settings->rrfBm25Weight;
 
         $scoredResults = [];
+        $droppedByMinSemanticThreshold = 0;
+        $singleSignalPenalized = 0;
+        $bothSignals = 0;
         foreach ($allIds as $id) {
             $hasSemantic = isset($semanticLookup[$id]);
             $hasBm25 = isset($bm25Lookup[$id]);
             $semanticScore = $hasSemantic ? $semanticLookup[$id]['score'] : 0;
 
             if ($hasSemantic && !$hasBm25 && $semanticScore < $settings->minSemanticThreshold) {
+                $droppedByMinSemanticThreshold++;
                 continue;
             }
 
@@ -206,6 +210,11 @@ class HybridSearchService extends Component
 
             $rrfScore = 0;
             $isSingleSignal = !($hasSemantic && $hasBm25);
+            if ($isSingleSignal) {
+                $singleSignalPenalized++;
+            } else {
+                $bothSignals++;
+            }
 
             if ($hasSemantic) {
                 $rrfScore += $semanticWeight / ($k + $semanticLookup[$id]['rank']);
@@ -225,6 +234,17 @@ class HybridSearchService extends Component
                 'content' => $hasSemantic ? $semanticLookup[$id]['content'] : '',
             ];
         }
+
+        Logger::debug('RRF signal breakdown', [
+            'totalCandidates' => count($allIds),
+            'droppedByMinSemanticThreshold' => $droppedByMinSemanticThreshold,
+            'singleSignalPenalized' => $singleSignalPenalized,
+            'bothSignals' => $bothSignals,
+            'minSemanticThreshold' => $settings->minSemanticThreshold,
+            'singleSignalPenalty' => $settings->singleSignalPenalty,
+            'rrfSemanticWeight' => $settings->rrfSemanticWeight,
+            'rrfBm25Weight' => $settings->rrfBm25Weight,
+        ]);
 
         return $scoredResults;
     }

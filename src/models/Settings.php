@@ -29,7 +29,6 @@ class Settings extends Model
     public float $rrfBm25Weight = 0.7;
 
     public string $ragModel = 'gpt-5.4-nano';
-    public float $ragTemperature = 0.3;
     public ?string $ragCustomPrompt = null;
 
     public int $minChunkTokens = 100;
@@ -86,8 +85,6 @@ class Settings extends Model
             [['ragModel'], 'required'],
             [['ragModel'], 'string'],
             [['ragModel'], 'in', 'range' => ['gpt-5.4-nano']],
-            [['ragTemperature'], 'number', 'min' => 0, 'max' => 2],
-            [['ragTemperature'], 'default', 'value' => 0.3],
             [['ragCustomPrompt'], 'string'],
 
             // Content Chunking validation

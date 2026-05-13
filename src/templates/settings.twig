@@ -292,21 +292,6 @@
                 errors: settings.getErrors('ragModel'),
             }) }}
 
-            {{ forms.textField({
-                label: 'Response Creativity',
-                instructions: 'How creative should the AI be when generating summaries? Lower values (0.1-0.3) stick closely to your content. Higher values (0.7-1.0) allow more creative interpretation. We recommend keeping this low for factual accuracy. Range: 0-2, default: 0.3',
-                id: 'ragTemperature',
-                name: 'ragTemperature',
-                value: settings.ragTemperature,
-                type: 'number',
-                step: '0.1',
-                min: '0',
-                max: '2',
-                placeholder: '0.3',
-                required: true,
-                errors: settings.getErrors('ragTemperature'),
-            }) }}
-
             <hr>
 
             <h2>Custom Instructions</h2>

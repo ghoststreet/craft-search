@@ -59,6 +59,24 @@ final class SearchResultDeduplicator
     public static function process(array $results, string $scoreKey, int $limit): array
     {
         $deduplicated = self::deduplicateByElement($results, $scoreKey);
+
+        $chunkCounts = [];
+        foreach ($results as $row) {
+            $key = $row['elementId'] . '-' . $row['siteId'];
+            $chunkCounts[$key] = ($chunkCounts[$key] ?? 0) + 1;
+        }
+        $multiChunkEntries = count(array_filter($chunkCounts, fn($n) => $n > 1));
+        $collapsedChunks = array_sum($chunkCounts) - count($chunkCounts);
+
+        Logger::debug('SearchResultDeduplicator', [
+            'scoreKey' => $scoreKey,
+            'rowsIn' => count($results),
+            'uniqueElements' => count($deduplicated),
+            'multiChunkEntries' => $multiChunkEntries,
+            'collapsedChunks' => $collapsedChunks,
+            'limit' => $limit,
+        ]);
+
         return self::sortAndLimit($deduplicated, $scoreKey, $limit);
     }
 }

@@ -7,6 +7,7 @@ use ghoststreet\craftaisearch\exceptions\AiSearchException;
 use ghoststreet\craftaisearch\exceptions\SearchException;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\TimingProfiler;
+use ghoststreet\craftaisearch\helpers\TokenEstimator;
 use ghoststreet\craftaisearch\models\Settings;
 use RuntimeException;
 use yii\base\Component;
@@ -20,9 +21,6 @@ use yii\base\Component;
  */
 class RagSearchService extends Component
 {
-    /** Models that do not support the temperature parameter */
-    private const MODELS_WITHOUT_TEMPERATURE = ['gpt-5.4-nano'];
-
     /**
      * Perform AI-powered search: hybrid retrieval followed by LLM summary generation.
      *
@@ -73,6 +71,12 @@ class RagSearchService extends Component
             } catch (AiSearchException $e) {
                 Logger::exception($e, 'ragSearch', ['query' => substr($query, 0, 50)]);
                 throw SearchException::ragSearchFailed($e->getMessage(), $e);
+            } catch (\Throwable $e) {
+                Logger::exception($e, 'ragSearch', ['query' => substr($query, 0, 50)]);
+                throw SearchException::ragSearchFailed(
+                    get_class($e) . ': ' . $e->getMessage(),
+                    $e instanceof \Exception ? $e : new RuntimeException($e->getMessage(), 0)
+                );
             }
         });
     }
@@ -86,6 +90,7 @@ class RagSearchService extends Component
     private function buildContext(array $searchResults): string
     {
         $contextBlocks = [];
+        $perSource = [];
 
         foreach ($searchResults as $index => $result) {
             $element = $result['element'];
@@ -93,9 +98,25 @@ class RagSearchService extends Component
             $sourceNumber = $index + 1;
 
             $contextBlocks[] = "---\nSOURCE {$sourceNumber}\nID: {$element->id}\nTitle: {$element->title}\nURL: {$element->getUrl()}\nContent:\n{$content}\n---";
+
+            $perSource[] = [
+                'src' => $sourceNumber,
+                'id' => $element->id,
+                'chars' => strlen($content),
+                'tokens' => TokenEstimator::estimateTokens($content),
+            ];
         }
 
-        return implode("\n\n", $contextBlocks);
+        $context = implode("\n\n", $contextBlocks);
+
+        Logger::debug('RAG context breakdown', [
+            'sourceCount' => count($searchResults),
+            'totalChars' => strlen($context),
+            'estimatedTotalTokens' => TokenEstimator::estimateTokens($context),
+            'perSource' => $perSource,
+        ]);
+
+        return $context;
     }
 
     /**
@@ -114,19 +135,13 @@ class RagSearchService extends Component
         $userPrompt .= "Based on these sources, provide a helpful answer to the query. ";
         $userPrompt .= "Return your response as JSON: {\"summary\": \"your answer\", \"sourceIds\": [id1, id2], \"confidence\": \"high|medium|low\"}";
 
-        $params = [
+        $response = $client->chat()->create([
             'model' => $settings->ragModel,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
             ],
-        ];
-
-        if (!in_array($settings->ragModel, self::MODELS_WITHOUT_TEMPERATURE)) {
-            $params['temperature'] = $settings->ragTemperature;
-        }
-
-        $response = $client->chat()->create($params);
+        ]);
 
         return $response->choices[0]->message->content;
     }
