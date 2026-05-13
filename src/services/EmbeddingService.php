@@ -11,6 +11,8 @@ use craft\elements\db\ElementQuery;
 use craft\elements\db\EntryQuery;
 use craft\elements\db\TagQuery;
 use craft\elements\Entry;
+use craft\fields\Link;
+use craft\fields\Time;
 use DateTime;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
@@ -169,8 +171,12 @@ class EmbeddingService extends Component
      */
     private function extractTextFromFieldValue(FieldInterface $field, mixed $fieldValue): string
     {
+        if ($field instanceof Link) {
+            return '';
+        }
+
         if ($fieldValue instanceof DateTime) {
-            return $fieldValue->format('F j, Y');
+            return $this->formatDateTimeField($field, $fieldValue);
         }
 
         if ($fieldValue instanceof ElementQuery) {
@@ -219,6 +225,22 @@ class EmbeddingService extends Component
         }
 
         return '';
+    }
+
+    /**
+     * Format a DateTime field value.
+     *
+     * Craft's Time field stores values as full DateTime objects with today's date as
+     * the date portion — formatting as "F j, Y" would index today's date instead of
+     * the actual time. Pick the format from the field type.
+     */
+    private function formatDateTimeField(FieldInterface $field, DateTime $value): string
+    {
+        if ($field instanceof Time) {
+            return $value->format('H:i');
+        }
+
+        return $value->format('F j, Y');
     }
 
     /**
@@ -349,6 +371,18 @@ class EmbeddingService extends Component
                     'searchable' => false,
                     'indexed' => false,
                     'reason' => 'searchable=false',
+                    'extractedText' => '',
+                ];
+                continue;
+            }
+
+            if ($field instanceof Link) {
+                $rows[] = [
+                    'handle' => $field->handle,
+                    'type' => $type,
+                    'searchable' => true,
+                    'indexed' => false,
+                    'reason' => 'skipped',
                     'extractedText' => '',
                 ];
                 continue;
