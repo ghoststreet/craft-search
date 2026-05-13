@@ -15,7 +15,7 @@ final class SearchResultDeduplicator
      * @param string $scoreKey The array key containing the numeric score (e.g. 'similarity')
      * @return array<int, array{elementId: int, siteId: int, content: string, ...}> Deduplicated results
      */
-    public static function deduplicateByElement(array $results, string $scoreKey = 'similarity'): array
+    private static function deduplicateByElement(array $results, string $scoreKey = 'similarity'): array
     {
         $deduplicated = [];
 
@@ -39,7 +39,7 @@ final class SearchResultDeduplicator
      * @param int $limit Maximum number of results to return
      * @return array<int, array<string, mixed>> Sorted and limited results
      */
-    public static function sortAndLimit(array $results, string $scoreKey, int $limit): array
+    private static function sortAndLimit(array $results, string $scoreKey, int $limit): array
     {
         usort($results, function($a, $b) use ($scoreKey) {
             return $b[$scoreKey] <=> $a[$scoreKey];

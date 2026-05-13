@@ -28,7 +28,7 @@ class Settings extends Model
     public float $rrfSemanticWeight = 0.3;
     public float $rrfBm25Weight = 0.7;
 
-    public string $ragModel = 'gpt-5-nano';
+    public string $ragModel = 'gpt-5.4-nano';
     public float $ragTemperature = 0.3;
     public ?string $ragCustomPrompt = null;
 
@@ -85,7 +85,7 @@ class Settings extends Model
             // RAG Search validation
             [['ragModel'], 'required'],
             [['ragModel'], 'string'],
-            [['ragModel'], 'in', 'range' => ['gpt-5-nano', 'gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4o', 'gpt-4-turbo']],
+            [['ragModel'], 'in', 'range' => ['gpt-5.4-nano']],
             [['ragTemperature'], 'number', 'min' => 0, 'max' => 2],
             [['ragTemperature'], 'default', 'value' => 0.3],
             [['ragCustomPrompt'], 'string'],
@@ -133,11 +133,7 @@ class Settings extends Model
      */
     public function getOpenaiApiKey(): ?string
     {
-        if (empty($this->openaiApiKey)) {
-            return null;
-        }
-
-        return App::parseEnv($this->openaiApiKey);
+        return $this->parseEnvOrNull($this->openaiApiKey);
     }
 
     /**

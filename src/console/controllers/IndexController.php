@@ -2,11 +2,12 @@
 
 namespace ghoststreet\craftaisearch\console\controllers;
 
+use Craft;
 use craft\console\Controller;
 use craft\elements\Entry;
 use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\AiSearchException;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
+use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use yii\console\ExitCode;
 use yii\helpers\Console;
 
@@ -18,8 +19,6 @@ use yii\helpers\Console;
  */
 class IndexController extends Controller
 {
-    private const BATCH_SIZE = 10;
-
     public $defaultAction = 'index';
     public ?int $siteId = null;
     public ?string $section = null;
@@ -88,31 +87,27 @@ class IndexController extends Controller
             return ExitCode::OK;
         }
 
-        $indexedCount = 0;
-        $failedCount = 0;
+        $queued = 0;
+        $perSection = [];
 
-        foreach ($query->batch(self::BATCH_SIZE) as $batch) {
-            foreach ($batch as $entry) {
-                try {
-                    AiSearch::getInstance()->embeddingService->indexElement($entry);
-                    $indexedCount++;
-                    $this->stdout(".");
-                } catch (AiSearchException $e) {
-                    $failedCount++;
-                    $this->stdout("F", Console::FG_RED);
-                    $this->stdout(" Failed to index entry {$entry->id}: {$e->getMessage()}\n", Console::FG_RED);
-                }
-            }
+        foreach ($query->each() as $entry) {
+            Craft::$app->getQueue()->push(new IndexEntryJob([
+                'entryId' => $entry->id,
+                'siteId' => $entry->siteId,
+            ]));
+            $queued++;
+
+            $sectionHandle = $entry->getSection()?->handle ?? 'unknown';
+            $perSection[$sectionHandle] = ($perSection[$sectionHandle] ?? 0) + 1;
         }
 
-        $this->stdout("\n");
-        $this->stdout("Indexing complete!\n", Console::FG_GREEN);
-        $this->stdout("Indexed: {$indexedCount}\n");
+        $this->stdout("Queued {$queued} IndexEntryJob(s).\n", Console::FG_GREEN);
 
-        if ($failedCount > 0) {
-            $this->stdout("Failed: {$failedCount}\n", Console::FG_RED);
-            return ExitCode::UNSPECIFIED_ERROR;
+        foreach ($perSection as $handle => $count) {
+            $this->stdout("  {$handle}: {$count}\n");
         }
+
+        $this->stdout("Run `./craft queue/run` (or your queue runner) to process the jobs.\n");
 
         return ExitCode::OK;
     }

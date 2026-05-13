@@ -175,7 +175,8 @@ class AiSearch extends Plugin
             );
             Craft::$app->getCache()->delete(DatabaseService::SCHEMA_CACHE_KEY);
         } catch (\Throwable $e) {
-            Craft::warning("Could not drop AI Search table: {$e->getMessage()}", __METHOD__);
+            Craft::error("Could not drop AI Search table: {$e->getMessage()}", __METHOD__);
+            throw $e;
         }
     }
 

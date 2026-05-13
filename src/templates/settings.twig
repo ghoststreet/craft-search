@@ -286,11 +286,7 @@
                 name: 'ragModel',
                 value: settings.ragModel,
                 options: [
-                    { label: 'gpt-5-nano (Recommended)', value: 'gpt-5-nano' },
-                    { label: 'gpt-4o-mini', value: 'gpt-4o-mini' },
-                    { label: 'gpt-3.5-turbo', value: 'gpt-3.5-turbo' },
-                    { label: 'gpt-4o', value: 'gpt-4o' },
-                    { label: 'gpt-4-turbo', value: 'gpt-4-turbo' },
+                    { label: 'gpt-5.4-nano', value: 'gpt-5.4-nano' },
                 ],
                 required: true,
                 errors: settings.getErrors('ragModel'),
@@ -335,7 +331,7 @@
             <p class="light">Choose which sections to index. Leave empty to index all sections with URLs.</p>
 
             {% namespace 'settings' %}
-            {% set allSections = craft.app.sections.allSections() %}
+            {% set allSections = craft.app.entries.allSections() %}
             {% set sectionOptions = [] %}
             {% for section in allSections %}
                 {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}

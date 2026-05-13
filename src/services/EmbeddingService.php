@@ -564,6 +564,33 @@ class EmbeddingService extends Component
      *
      * @throws \ghoststreet\craftaisearch\exceptions\DatabaseException If database connection fails or query fails
      */
+    /**
+     * Delete chunk rows whose chunkIndex is at or above the current total.
+     *
+     * Used after re-indexing to prune stale tail chunks left over from a
+     * previous, longer version of the same entry. storeVector() upserts by
+     * (elementId, siteId, chunkIndex), so chunk slots beyond the new tail
+     * would otherwise persist with embeddings that no longer match any text.
+     *
+     * @throws \ghoststreet\craftaisearch\exceptions\DatabaseException
+     */
+    private function deleteExcessChunks(int $elementId, int $siteId, int $totalChunks): void
+    {
+        $db = AiSearch::getInstance()->databaseService->getConnection();
+
+        try {
+            $stmt = $db->prepare('DELETE FROM ' . DatabaseService::TABLE_NAME . ' WHERE "elementId" = :elementId AND "siteId" = :siteId AND "chunkIndex" >= :totalChunks');
+            $stmt->execute([
+                ':elementId' => $elementId,
+                ':siteId' => $siteId,
+                ':totalChunks' => $totalChunks,
+            ]);
+        } catch (PDOException $e) {
+            Logger::exception($e, 'deleteExcessChunks', ['elementId' => $elementId, 'siteId' => $siteId, 'totalChunks' => $totalChunks]);
+            throw DatabaseException::queryFailed('deleteExcessChunks', $e);
+        }
+    }
+
     public function deleteVector(int $elementId, ?int $siteId = null): void
     {
         $db = AiSearch::getInstance()->databaseService->getConnection();

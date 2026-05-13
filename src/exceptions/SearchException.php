@@ -28,4 +28,9 @@ class SearchException extends AiSearchException
             $previous
         );
     }
+
+    public static function indexEntryNotFound(int $entryId, int $siteId): self
+    {
+        return new self("Entry #{$entryId} not found for site #{$siteId}");
+    }
 }

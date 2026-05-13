@@ -41,28 +41,6 @@ final class ApiResponseHelper
     }
 
     /**
-     * Create a validation error response array.
-     *
-     * @param string $message The validation error message
-     * @return array{success: false, error: string}
-     */
-    public static function validationError(string $message): array
-    {
-        return [
-            'success' => false,
-            'error' => $message,
-        ];
-    }
-
-    /**
-     * Create a success response array.
-     */
-    public static function success(array $data = []): array
-    {
-        return array_merge(['success' => true], $data);
-    }
-
-    /**
      * Check if query parameter is valid and return validation error if not.
      *
      * @param string $query The query string to validate
@@ -71,13 +49,11 @@ final class ApiResponseHelper
     public static function validateQuery(string $query): ?array
     {
         if (TextValidator::isEmpty($query)) {
-            return self::validationError('Query parameter "q" is required');
+            return ['success' => false, 'error' => 'Query parameter "q" is required'];
         }
 
         if (strlen($query) > self::MAX_QUERY_LENGTH) {
-            return self::validationError(
-                sprintf('Query exceeds maximum length of %d characters', self::MAX_QUERY_LENGTH)
-            );
+            return ['success' => false, 'error' => sprintf('Query exceeds maximum length of %d characters', self::MAX_QUERY_LENGTH)];
         }
 
         return null;

@@ -7,6 +7,7 @@ use craft\elements\Entry;
 use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
+use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\CleanupStaleVectorsJob;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
@@ -127,10 +128,7 @@ class DataSyncController extends Controller
                 'queueRemaining' => $queueTotal,
             ]);
         } catch (\Throwable $e) {
-            return $this->asJson([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ]);
+            return $this->asJson(ApiResponseHelper::error($e));
         }
     }
 }

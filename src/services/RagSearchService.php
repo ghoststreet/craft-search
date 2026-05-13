@@ -21,7 +21,7 @@ use yii\base\Component;
 class RagSearchService extends Component
 {
     /** Models that do not support the temperature parameter */
-    private const MODELS_WITHOUT_TEMPERATURE = ['gpt-5-nano'];
+    private const MODELS_WITHOUT_TEMPERATURE = ['gpt-5.4-nano'];
 
     /**
      * Perform AI-powered search: hybrid retrieval followed by LLM summary generation.
@@ -179,19 +179,16 @@ PROMPT;
      */
     private function parseResponse(string $content, array $searchResults, int $limit): array
     {
-        if (!preg_match('/\{[^{}]*"summary"[^{}]*\}/s', $content, $match)) {
+        $parsed = json_decode(trim($content), true);
+
+        if (!is_array($parsed) || !isset($parsed['summary'])) {
             throw SearchException::ragSearchFailed(
-                sprintf('LLM response did not contain expected JSON format. Preview: %s', substr($content, 0, 200)),
+                sprintf(
+                    'LLM response was not valid JSON with a "summary" key: %s. Preview: %s',
+                    json_last_error_msg(),
+                    substr($content, 0, 200)
+                ),
                 new RuntimeException('Malformed LLM response')
-            );
-        }
-
-        $parsed = json_decode($match[0], true);
-
-        if ($parsed === null) {
-            throw SearchException::ragSearchFailed(
-                sprintf('Failed to parse LLM JSON response: %s', json_last_error_msg()),
-                new RuntimeException('JSON parse error')
             );
         }
 

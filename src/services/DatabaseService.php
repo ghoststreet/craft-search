@@ -418,7 +418,7 @@ class DatabaseService extends Component
         if (!preg_match('/^([^:]+):([^@]+)@([^:\/]+):?(\d+)?\/(.+)$/', $uri, $matches)) {
             Logger::warning('Failed to parse PostgreSQL connection URI', [
                 'expected' => 'postgresql://user:password@host:port/database',
-                'received' => substr($rawUri, 0, 50) . '...',
+                'received' => preg_replace('/\/\/[^@]*@/', '//[redacted]@', $rawUri),
             ]);
 
             return null;

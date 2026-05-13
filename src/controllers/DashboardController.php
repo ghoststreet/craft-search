@@ -17,6 +17,8 @@ class DashboardController extends Controller
      */
     public function actionIndex(): Response
     {
+        $this->requireAdmin();
+
         $plugin = AiSearch::getInstance();
 
         try {
