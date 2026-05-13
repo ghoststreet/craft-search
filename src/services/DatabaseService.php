@@ -288,46 +288,6 @@ class DatabaseService extends Component
     }
 
     /**
-     * Delete vectors for element/site pairs not in the provided list.
-     *
-     * @param array<array{elementId: int, siteId: int}> $validPairs
-     * @return int Number of deleted rows
-     * @throws DatabaseException If connection fails or query fails
-     */
-    public function deleteVectorsNotInPairs(array $validPairs): int
-    {
-        if (empty($validPairs)) {
-            return $this->clearAllVectors();
-        }
-
-        $db = $this->getConnection();
-
-        try {
-            $valuePlaceholders = [];
-            $params = [];
-            foreach ($validPairs as $i => $pair) {
-                $valuePlaceholders[] = "(:elementId{$i}, :siteId{$i})";
-                $params[":elementId{$i}"] = $pair['elementId'];
-                $params[":siteId{$i}"] = $pair['siteId'];
-            }
-
-            $sql = 'DELETE FROM ' . self::TABLE_NAME .
-                ' WHERE ("elementId", "siteId") NOT IN (' . implode(', ', $valuePlaceholders) . ')';
-
-            $stmt = $db->prepare($sql);
-            $stmt->execute($params);
-            $count = $stmt->rowCount();
-
-            Logger::info('Deleted stale vectors', ['count' => $count]);
-
-            return $count;
-        } catch (PDOException $e) {
-            Logger::exception($e, 'deleteVectorsNotInPairs');
-            throw DatabaseException::queryFailed('deleteVectorsNotInPairs', $e);
-        }
-    }
-
-    /**
      * Drop and reinitialize the vectors table.
      *
      * @throws DatabaseException If connection or DDL operations fail

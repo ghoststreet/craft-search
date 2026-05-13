@@ -9,7 +9,6 @@ use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
 use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\jobs\CleanupStaleVectorsJob;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use yii\web\Response;
 
@@ -47,10 +46,13 @@ class DataSyncController extends Controller
     }
 
     /**
-     * Incrementally sync the vector database: queue all valid entries for
-     * re-indexing, then queue a cleanup job to remove stale vectors.
+     * Destructively rebuild the vector database: truncate `aisearch_vectors`,
+     * then queue an IndexEntryJob for every currently-valid entry.
      *
-     * Existing search data remains available throughout the process.
+     * Search returns empty results until the queue drains. Steady-state drift
+     * between Craft and the vectors table is handled by the live element
+     * save/delete event handlers in AiSearch::registerEventHandlers(); this
+     * action is the recovery / initial-load path.
      *
      * @throws DatabaseException If the operation fails (caught internally for UI feedback)
      */
@@ -60,7 +62,9 @@ class DataSyncController extends Controller
         $this->requirePostRequest();
 
         try {
-            Logger::info('Starting incremental sync operation');
+            Logger::info('Starting wipe-and-reindex operation');
+
+            AiSearch::getInstance()->databaseService->clearAllVectors();
 
             $entries = Entry::find()
                 ->status(null)
@@ -70,30 +74,20 @@ class DataSyncController extends Controller
                 ->all();
 
             $queue = Craft::$app->getQueue();
-            $validPairs = [];
 
             foreach ($entries as $entry) {
-                $entryId = (int)$entry['id'];
-                $siteId = (int)$entry['siteId'];
-
                 $queue->push(new IndexEntryJob([
-                    'entryId' => $entryId,
-                    'siteId' => $siteId,
+                    'entryId' => (int)$entry['id'],
+                    'siteId' => (int)$entry['siteId'],
                 ]));
-
-                $validPairs[] = ['elementId' => $entryId, 'siteId' => $siteId];
             }
-
-            $queue->push(new CleanupStaleVectorsJob([
-                'validPairs' => $validPairs,
-            ]));
 
             $count = count($entries);
             Logger::info('Queued entries for sync', ['count' => $count]);
 
             Craft::$app->getSession()->setFlash('ai-search-sync-started', true);
             Craft::$app->getSession()->setNotice(
-                Craft::t('ai-search', '{count} entries queued for syncing. Stale vectors will be cleaned up after indexing completes. Check Utilities → Queue for progress.', [
+                Craft::t('ai-search', 'Search index cleared. {count} entries queued for reindexing. Search results will return as the queue processes.', [
                     'count' => $count,
                 ])
             );
