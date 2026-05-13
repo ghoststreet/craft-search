@@ -176,6 +176,94 @@ class SearchController extends Controller
     }
 
     /**
+     * Streaming RAG endpoint. Emits Server-Sent Events:
+     *   event: sources  data: {sources: [...]}
+     *   event: token    data: {t: "..."}
+     *   event: done     data: {}
+     *   event: error    data: {message: "..."}
+     */
+    public function actionRagStream(): Response
+    {
+        $params = RequestParameterExtractor::extractSearchParams(20);
+
+        // Release the session lock so the long-running stream doesn't block other
+        // requests from this browser (Craft would otherwise hold the lock for the
+        // entire streaming response).
+        Craft::$app->getSession()->close();
+
+        $response = Craft::$app->getResponse();
+        $response->format = Response::FORMAT_RAW;
+        $response->content = '';
+
+        while (ob_get_level() > 0) {
+            @ob_end_flush();
+        }
+        @ob_implicit_flush(true);
+
+        header('Content-Type: text/event-stream');
+        header('Cache-Control: no-cache');
+        header('X-Accel-Buffering: no');
+        header('Connection: keep-alive');
+
+        // Tell the client we're alive immediately so EventSource fires `open`
+        // before any token arrives (and any proxy buffering is exposed early).
+        echo ": connected\n\n";
+        @flush();
+
+        if ($params['validationError'] !== null) {
+            $this->emitSse('error', $params['validationError']);
+            Craft::$app->end();
+            return $response;
+        }
+
+        $this->logRequest('ragStream', $params);
+
+        try {
+            $generator = AiSearch::getInstance()->ragSearchService->searchStream(
+                $params['query'],
+                $params['limit'],
+                $params['siteId']
+            );
+
+            foreach ($generator as $event) {
+                switch ($event['type']) {
+                    case 'sources':
+                        $formatted = $this->formatElementResults(
+                            array_column($event['sources'], 'element'),
+                            $event['sources'],
+                            SearchResultFormatter::TYPE_RAG
+                        );
+                        $this->emitSse('sources', ['sources' => $formatted, 'requestId' => $this->requestId]);
+                        break;
+                    case 'token':
+                        $this->emitSse('token', ['t' => $event['text']]);
+                        break;
+                    case 'done':
+                        $this->emitSse('done', ['requestId' => $this->requestId]);
+                        break;
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+            }
+        } catch (Throwable $e) {
+            Logger::exception($e, 'ragStream', $this->errorContext($params));
+            $this->emitSse('error', ['message' => $e->getMessage(), 'requestId' => $this->requestId]);
+        }
+
+        Craft::$app->end();
+        return $response;
+    }
+
+    private function emitSse(string $event, array $data): void
+    {
+        echo "event: {$event}\n";
+        echo 'data: ' . json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";
+        @flush();
+    }
+
+    /**
      * Format a list of elements with optional metadata.
      */
     private function formatElementResults(array $elements, array $metadataList, string $type): array

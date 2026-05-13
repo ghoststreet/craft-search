@@ -214,10 +214,10 @@ class AiSearch extends Plugin
                     !$element->getIsRevision() &&
                     $element->getUrl() !== null &&
                     $this->isSectionAllowed($element)) {
-                    Craft::$app->getQueue()->push(new IndexEntryJob([
-                        'entryId' => $element->id,
-                        'siteId' => $element->siteId,
-                    ]));
+                    $job = $element->getStatus() === Entry::STATUS_ENABLED
+                        ? new IndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
+                        : new DeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]);
+                    Craft::$app->getQueue()->push($job);
                 }
             }
         );
@@ -243,6 +243,7 @@ class AiSearch extends Plugin
                 $event->rules['api/hybrid-search'] = 'ai-search/search/semantic-search';
                 $event->rules['api/craft-search'] = 'ai-search/search/craft-search';
                 $event->rules['api/rag-search'] = 'ai-search/search/rag-search';
+                $event->rules['api/rag-search/stream'] = 'ai-search/search/rag-stream';
             }
         );
 

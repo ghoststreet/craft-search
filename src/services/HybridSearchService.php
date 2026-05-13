@@ -112,6 +112,7 @@ class HybridSearchService extends Component
                 $lookup[$score['elementId']] = [
                     'score' => $score['bm25Score'],
                     'rank' => $rank++,
+                    'content' => $score['content'] ?? '',
                 ];
             }
         }
@@ -126,7 +127,7 @@ class HybridSearchService extends Component
     private function loadElementsWithScores(array $scoredResults, int $limit): array
     {
         $allIds = array_keys($scoredResults);
-        $elements = Entry::find()->id($allIds)->indexBy('id')->all();
+        $elements = Entry::find()->id($allIds)->status(Entry::STATUS_ENABLED)->indexBy('id')->all();
 
         $missingCount = 0;
         $noUrlCount = 0;
@@ -231,7 +232,9 @@ class HybridSearchService extends Component
                 'semanticRank' => $hasSemantic ? $semanticLookup[$id]['rank'] : null,
                 'bm25Score' => $hasBm25 ? $bm25Lookup[$id]['score'] : 0.0,
                 'bm25Rank' => $hasBm25 ? $bm25Lookup[$id]['rank'] : null,
-                'content' => $hasSemantic ? $semanticLookup[$id]['content'] : '',
+                'content' => $hasSemantic
+                    ? $semanticLookup[$id]['content']
+                    : ($hasBm25 ? ($bm25Lookup[$id]['content'] ?? '') : ''),
             ];
         }
 

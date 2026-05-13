@@ -3,6 +3,7 @@
 namespace ghoststreet\craftaisearch\services;
 
 use Craft;
+use craft\db\Query;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\SearchException;
 use ghoststreet\craftaisearch\helpers\Logger;
@@ -10,27 +11,25 @@ use PDOException;
 use yii\base\Component;
 
 /**
- * BM25 Service using PostgreSQL native full-text search.
+ * BM25-style scoring via PostgreSQL full-text search, with a title-match rerank.
  *
- * Leverages ts_rank_cd with document-length normalization for BM25-style scoring,
- * combined with language-aware stemming via to_tsvector/to_tsquery. The text search
- * configuration is resolved automatically from the Craft site language. Results are
- * grouped by element so that the highest-scoring chunk represents each entry.
+ * Each chunk is scored against the query with ts_rank_cd (length-normalized), parsed
+ * via websearch_to_tsquery so quoted phrases and OR/- operators work. Multi-token
+ * queries also get an ILIKE substring bonus on the chunk body. After ranking, an
+ * in-PHP rerank adds a bonus proportional to the longest consecutive run of query
+ * tokens found in the entry title — titles live in the main Craft DB (not the
+ * vectors DB), so this can't be expressed as a SQL JOIN.
  */
 class BM25Service extends Component
 {
-    /** ts_rank_cd normalization flag: divide rank by document length */
+    /** ts_rank_cd normalization flag: divide rank by document length. */
     private const TS_RANK_NORMALIZE_LENGTH = 32;
 
+    /** Per extra token in the longest consecutive title match — bigram = +1.5, trigram = +3.0, etc. */
+    private const TITLE_NGRAM_BONUS_PER_EXTRA_TOKEN = 1.5;
+
     /**
-     * Calculate BM25-style scores for all entries matching the query using PostgreSQL full-text search.
-     *
-     * Stems the query into a tsquery OR expression, scores each chunk with ts_rank_cd
-     * (length-normalized), and groups by element to return the maximum score per entry.
-     *
-     * @param string $query Raw search query text
-     * @param int|null $siteId Restrict results to a specific site
-     * @return array<int, array{elementId: int, siteId: int, bm25Score: float}> Scored entries ordered by relevance
+     * @return array<int, array{elementId: int, siteId: int, bm25Score: float, content: string}>
      * @throws SearchException If the database query fails
      */
     public function calculateScores(string $query, ?int $siteId = null): array
@@ -42,45 +41,79 @@ class BM25Service extends Component
             return [];
         }
 
-        $tsQueryExpr = $this->buildTsQueryExpression($normalizedQuery);
-
-        if ($tsQueryExpr === null) {
-            return [];
-        }
-
         $language = $this->resolveTextSearchConfig($siteId);
         $normalization = self::TS_RANK_NORMALIZE_LENGTH;
 
+        // For single-keyword queries the ILIKE branch would over-match (e.g. "the") and add no relative signal.
+        $tokenCount = count(preg_split('/\s+/', $normalizedQuery, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        $applyPhraseBoost = $tokenCount >= 2;
+
         try {
-            $sql = "
-                SELECT
-                    \"elementId\",
-                    \"siteId\",
-                    MAX(ts_rank_cd(
-                        to_tsvector('{$language}', COALESCE(content, '')),
-                        to_tsquery('{$language}', :query),
-                        {$normalization}
-                    )) AS bm25_score
-                FROM " . DatabaseService::TABLE_NAME . "
-                WHERE to_tsvector('{$language}', COALESCE(content, '')) @@ to_tsquery('{$language}', :query)
-            ";
+            $contentTs = "to_tsvector('{$language}', COALESCE(content, ''))";
+            $tsQuery = "websearch_to_tsquery('{$language}', :query)";
 
-            $params = [':query' => $tsQueryExpr];
+            $scoreExpr = "ts_rank_cd({$contentTs}, {$tsQuery}, {$normalization})";
+            $whereExpr = "{$contentTs} @@ {$tsQuery}";
 
+            if ($applyPhraseBoost) {
+                // +1.0 is large relative to typical ts_rank_cd values (~0.0-0.5),
+                // floating any chunk containing the exact phrase to the top of BM25.
+                $scoreExpr .= " + (CASE WHEN content ILIKE :raw THEN 1.0 ELSE 0 END)";
+                // OR'd into WHERE so exact substring matches still surface even when
+                // websearch_to_tsquery returns empty (e.g. all-stopword queries).
+                $whereExpr = "({$whereExpr} OR content ILIKE :raw)";
+            }
+
+            $params = [':query' => $normalizedQuery];
+
+            if ($applyPhraseBoost) {
+                $params[':raw'] = '%' . $normalizedQuery . '%';
+            }
+
+            $siteFilter = '';
             if ($siteId !== null) {
-                $sql .= " AND \"siteId\" = :siteId";
+                $siteFilter = ' AND "siteId" = :siteId';
                 $params[':siteId'] = $siteId;
             }
 
-            $sql .= " GROUP BY \"elementId\", \"siteId\"";
-
             $maxResults = AiSearch::getInstance()->getSettings()->maxSemanticResults;
-            $sql .= " ORDER BY bm25_score DESC LIMIT {$maxResults}";
+
+            // CTE + ROW_NUMBER keeps the *content* of the best-scoring chunk per
+            // (elementId, siteId). Hybrid needs that content for excerpt rendering
+            // when a result is BM25-only (not in the semantic top-N).
+            $sql = "
+                WITH scored AS (
+                    SELECT
+                        \"elementId\",
+                        \"siteId\",
+                        content,
+                        {$scoreExpr} AS chunk_score
+                    FROM " . DatabaseService::TABLE_NAME . "
+                    WHERE {$whereExpr}{$siteFilter}
+                ), ranked AS (
+                    SELECT
+                        \"elementId\",
+                        \"siteId\",
+                        content,
+                        chunk_score,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY \"elementId\", \"siteId\"
+                            ORDER BY chunk_score DESC
+                        ) AS rn
+                    FROM scored
+                )
+                SELECT \"elementId\", \"siteId\", chunk_score AS bm25_score, content
+                FROM ranked
+                WHERE rn = 1
+                ORDER BY bm25_score DESC
+                LIMIT {$maxResults}
+            ";
 
             Logger::debug('BM25 query', [
                 'query' => $normalizedQuery,
                 'siteId' => $siteId,
                 'maxResults' => $maxResults,
+                'phraseBoost' => $applyPhraseBoost,
             ]);
 
             $stmt = $db->prepare($sql);
@@ -98,10 +131,11 @@ class BM25Service extends Component
                     'elementId' => (int)$row['elementId'],
                     'siteId' => (int)$row['siteId'],
                     'bm25Score' => (float)$row['bm25_score'],
+                    'content' => (string)($row['content'] ?? ''),
                 ];
             }
 
-            return $scores;
+            return $this->applyTitleBoost($scores, $normalizedQuery);
         } catch (PDOException $e) {
             Logger::exception($e, 'calculateScores', ['query' => substr($query, 0, 50)]);
             throw SearchException::semanticSearchFailed('BM25 scoring failed', $e);
@@ -109,11 +143,95 @@ class BM25Service extends Component
     }
 
     /**
-     * Resolve the PostgreSQL text search configuration from the Craft site language.
+     * Rerank candidates by the longest consecutive run of query tokens found in the entry title.
      *
-     * Uses Locale::getDisplayLanguage() to convert the site's ISO code (e.g. "en-US")
-     * into the English language name that PostgreSQL expects (e.g. "english").
-     * Falls back to "simple" if the resolved name is not a valid PostgreSQL config.
+     * A bigram match adds +1.5, trigram +3.0, etc. Single-token matches add nothing
+     * here — BM25's body scoring already accounts for individual word presence.
+     *
+     * @param array<int, array{elementId: int, siteId: int, bm25Score: float, content: string}> $scores
+     * @return array<int, array{elementId: int, siteId: int, bm25Score: float, content: string}>
+     */
+    private function applyTitleBoost(array $scores, string $query): array
+    {
+        if (empty($scores)) {
+            return $scores;
+        }
+
+        $tokens = array_values(array_filter(
+            preg_split('/\s+/', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY) ?: [],
+            static fn(string $t) => mb_strlen($t) >= 2
+        ));
+
+        if (count($tokens) < 2) {
+            return $scores;
+        }
+
+        $ids = array_unique(array_map(static fn(array $s) => $s['elementId'], $scores));
+
+        $rows = (new Query())
+            ->select(['elementId', 'siteId', 'title'])
+            ->from('{{%elements_sites}}')
+            ->where(['elementId' => $ids])
+            ->all();
+
+        $titles = [];
+        foreach ($rows as $row) {
+            $titles[$row['elementId'] . '-' . $row['siteId']] = mb_strtolower((string)($row['title'] ?? ''));
+        }
+
+        $boostedCount = 0;
+        $longestObserved = 0;
+        foreach ($scores as &$score) {
+            $title = $titles[$score['elementId'] . '-' . $score['siteId']] ?? '';
+            if ($title === '') {
+                continue;
+            }
+
+            $longest = $this->longestConsecutiveTokenMatch($tokens, $title);
+            if ($longest >= 2) {
+                $score['bm25Score'] += ($longest - 1) * self::TITLE_NGRAM_BONUS_PER_EXTRA_TOKEN;
+                $boostedCount++;
+                $longestObserved = max($longestObserved, $longest);
+            }
+        }
+        unset($score);
+
+        usort($scores, static fn(array $a, array $b) => $b['bm25Score'] <=> $a['bm25Score']);
+
+        Logger::debug('BM25 title-boost', [
+            'candidates' => count($scores),
+            'titlesResolved' => count($titles),
+            'titleBoosted' => $boostedCount,
+            'longestMatch' => $longestObserved,
+            'tokens' => $tokens,
+        ]);
+
+        return $scores;
+    }
+
+    /**
+     * Find the length of the longest consecutive run of query tokens that appears as a
+     * substring in $haystack. Returns 0 if no run of length >= 2 matches.
+     *
+     * @param string[] $tokens Lowercased query tokens in original order.
+     * @param string $haystack Lowercased text to search.
+     */
+    private function longestConsecutiveTokenMatch(array $tokens, string $haystack): int
+    {
+        $n = count($tokens);
+        for ($len = $n; $len >= 2; $len--) {
+            for ($i = 0; $i + $len <= $n; $i++) {
+                $ngram = implode(' ', array_slice($tokens, $i, $len));
+                if (str_contains($haystack, $ngram)) {
+                    return $len;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Map the Craft site language (e.g. "en-US") to a PostgreSQL text search config (e.g. "english").
      */
     private function resolveTextSearchConfig(?int $siteId): string
     {
@@ -124,37 +242,5 @@ class BM25Service extends Component
         $locale = $site->language ?? 'en';
 
         return strtolower(\Locale::getDisplayLanguage($locale, 'en'));
-    }
-
-    /**
-     * Build a tsquery OR expression from raw query text.
-     *
-     * Splits on whitespace, strips tsquery-reserved characters while preserving
-     * meaningful special characters within terms (e.g. "A+W"), and joins
-     * surviving tokens with the OR operator (|).
-     *
-     * @return string|null The tsquery expression, or null if no valid terms remain
-     */
-    private function buildTsQueryExpression(string $query): ?string
-    {
-        $terms = preg_split('/\s+/', $query, -1, PREG_SPLIT_NO_EMPTY);
-
-        $sanitized = [];
-        foreach ($terms as $term) {
-            // Strip characters that are tsquery operators or syntax: & | ! ( ) : * < >
-            $clean = preg_replace('/[&|!():*<>]/', '', $term);
-            // Remove leading/trailing non-alphanumeric chars (e.g. trailing punctuation)
-            $clean = preg_replace('/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/', '', $clean);
-
-            if ($clean !== '') {
-                $sanitized[] = $clean;
-            }
-        }
-
-        if (empty($sanitized)) {
-            return null;
-        }
-
-        return implode(' | ', $sanitized);
     }
 }

@@ -39,7 +39,7 @@ class Settings extends Model
 
     public int $embeddingCacheTtl = 604800;
 
-    public float $minSemanticThreshold = 0.5;
+    public float $minSemanticThreshold = 0.20;
     public float $singleSignalPenalty = 0.5;
     public int $maxSemanticResults = 100;
 
@@ -105,7 +105,7 @@ class Settings extends Model
 
             // Hybrid Search Advanced validation
             [['minSemanticThreshold'], 'number', 'min' => 0, 'max' => 1],
-            [['minSemanticThreshold'], 'default', 'value' => 0.5],
+            [['minSemanticThreshold'], 'default', 'value' => 0.20],
             [['singleSignalPenalty'], 'number', 'min' => 0, 'max' => 1],
             [['singleSignalPenalty'], 'default', 'value' => 0.5],
             [['maxSemanticResults'], 'integer', 'min' => 10, 'max' => 500],

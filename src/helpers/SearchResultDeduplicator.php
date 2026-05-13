@@ -66,7 +66,7 @@ final class SearchResultDeduplicator
             $chunkCounts[$key] = ($chunkCounts[$key] ?? 0) + 1;
         }
         $multiChunkEntries = count(array_filter($chunkCounts, fn($n) => $n > 1));
-        $collapsedChunks = array_sum($chunkCounts) - count($chunkCounts);
+        $collapsedChunks = count($results) - count($deduplicated);
 
         Logger::debug('SearchResultDeduplicator', [
             'scoreKey' => $scoreKey,

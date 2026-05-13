@@ -35,6 +35,17 @@ class IndexEntryJob extends BaseJob
             throw SearchException::indexEntryNotFound($this->entryId, $this->siteId);
         }
 
+        // Status may have flipped between enqueue and execution.
+        if ($entry->getStatus() !== Entry::STATUS_ENABLED) {
+            AiSearch::getInstance()->embeddingService->deleteVector($this->entryId, $this->siteId);
+            Logger::info('Skipped indexing disabled entry; removed any existing vectors', [
+                'entryId' => $this->entryId,
+                'siteId' => $this->siteId,
+                'status' => $entry->getStatus(),
+            ]);
+            return;
+        }
+
         AiSearch::getInstance()->embeddingService->indexElement($entry);
         Logger::info('Indexed entry via job', ['entryId' => $this->entryId]);
     }

@@ -68,7 +68,7 @@ class IndexController extends Controller
             return ExitCode::UNSPECIFIED_ERROR;
         }
 
-        $query = Entry::find();
+        $query = Entry::find()->status(Entry::STATUS_ENABLED);
 
         if ($this->siteId !== null) {
             $query->siteId($this->siteId);

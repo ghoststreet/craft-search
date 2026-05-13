@@ -55,7 +55,7 @@ class DataSyncController extends Controller
             AiSearch::getInstance()->databaseService->clearAllVectors();
 
             $entries = Entry::find()
-                ->status(null)
+                ->status(Entry::STATUS_ENABLED)
                 ->uri(':notempty:')
                 ->select(['elements.id', 'elements_sites.siteId'])
                 ->asArray()
