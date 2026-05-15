@@ -5,6 +5,7 @@ namespace ghoststreet\craftaisearch\services;
 use Craft;
 use craft\db\Query;
 use craft\helpers\Db;
+use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\PricingTable;
 use ghoststreet\craftaisearch\jobs\PruneHistoryJob;
@@ -86,7 +87,8 @@ class HistoryService extends Component
             return;
         }
 
-        $this->maybeQueuePrune($settings->historyRetentionDays);
+        $settings = AiSearch::getInstance()->getSettings();
+        $this->maybeQueuePrune((int)$settings->historyRetentionDays);
     }
 
     /**
