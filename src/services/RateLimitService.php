@@ -36,9 +36,6 @@ class RateLimitService extends Component
         $this->enforceWindow("rate:{$kind}:h:{$ip}", $perHour, self::WINDOW_HOUR);
 
         if ($kind === self::KIND_RAG) {
-            $this->enforceBudget("cost:daily:ip:{$ip}", $settings->costBudgetDailyPerIp, 'per-IP');
-            $this->enforceBudget('cost:daily:global', $settings->costBudgetDailyGlobal, 'global');
-
             $this->incrementConcurrency("conc:rag:ip:{$ip}", $settings->ragConcurrencyPerIp, 'per-IP');
             try {
                 $this->incrementConcurrency('conc:rag:global', $settings->ragConcurrencyGlobal, 'global');
@@ -64,14 +61,59 @@ class RateLimitService extends Component
         $this->decrementConcurrency('conc:rag:global');
     }
 
+    /**
+     * Today's spend vs the global daily cap. `cap` is 0 when budgeting is disabled.
+     *
+     * @return array{spent: float, cap: float, ratio: float, remaining: float, etaDays: ?float}
+     */
+    public function getBudgetConsumption(?float $sevenDayBurn = null): array
+    {
+        $settings = AiSearch::getInstance()->getSettings();
+        $cap = (float)$settings->costBudgetDailyGlobal;
+        $spent = (float)Craft::$app->getCache()->get('cost:daily:global');
+        if ($spent < 0) {
+            $spent = 0.0;
+        }
+
+        $ratio = $cap > 0 ? min(1.0, $spent / $cap) : 0.0;
+        $remaining = max(0.0, $cap - $spent);
+
+        $etaDays = null;
+        if ($cap > 0 && $sevenDayBurn !== null && $sevenDayBurn > 0) {
+            $etaDays = round($cap / $sevenDayBurn, 1);
+        }
+
+        return [
+            'spent' => round($spent, 4),
+            'cap' => $cap,
+            'ratio' => round($ratio, 4),
+            'remaining' => round($remaining, 4),
+            'etaDays' => $etaDays,
+        ];
+    }
+
     public function recordCost(string $ip, float $costUsd): void
     {
         if ($costUsd <= 0) {
             return;
         }
 
-        $this->addToBudget("cost:daily:ip:{$ip}", $costUsd);
         $this->addToBudget('cost:daily:global', $costUsd);
+    }
+
+    /**
+     * True when today's global RAG spend has hit the configured cap. Callers
+     * should fall back to plain hybrid search rather than failing the request.
+     */
+    public function isGlobalBudgetExhausted(): bool
+    {
+        $cap = (float)AiSearch::getInstance()->getSettings()->costBudgetDailyGlobal;
+        if ($cap <= 0) {
+            return false;
+        }
+
+        $spent = (float)Craft::$app->getCache()->get('cost:daily:global');
+        return $spent >= $cap;
     }
 
     private function enforceWindow(string $key, int $max, int $ttl): void
@@ -110,20 +152,6 @@ class RateLimitService extends Component
         }
 
         $cache->set($key, $current - 1, self::CONCURRENCY_TTL);
-    }
-
-    private function enforceBudget(string $key, float $cap, string $scope): void
-    {
-        if ($cap <= 0) {
-            return;
-        }
-
-        $cache = Craft::$app->getCache();
-        $spent = (float)$cache->get($key);
-
-        if ($spent >= $cap) {
-            throw RateLimitException::budgetExhausted($scope, self::WINDOW_DAY);
-        }
     }
 
     private function addToBudget(string $key, float $costUsd): void

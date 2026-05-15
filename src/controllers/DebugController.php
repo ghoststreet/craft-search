@@ -5,7 +5,6 @@ namespace ghoststreet\craftaisearch\controllers;
 use Craft;
 use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\assets\DebugAsset;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -37,8 +36,6 @@ class DebugController extends Controller
             $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 50, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
             $error = $e->getMessage();
         }
-
-        Craft::$app->getView()->registerAssetBundle(DebugAsset::class);
 
         return $this->renderTemplate('ai-search/debug/index', [
             'plugin' => $plugin,
@@ -73,8 +70,6 @@ class DebugController extends Controller
         if ($inspection === null && $error === null) {
             throw new NotFoundHttpException('Entry not found');
         }
-
-        Craft::$app->getView()->registerAssetBundle(DebugAsset::class);
 
         return $this->renderTemplate('ai-search/debug/entry', [
             'plugin' => $plugin,

@@ -1,0 +1,172 @@
+<?php
+
+namespace ghoststreet\craftaisearch\services;
+
+use Craft;
+use craft\helpers\UrlHelper;
+use ghoststreet\craftaisearch\AiSearch;
+use yii\base\Component;
+
+/**
+ * Produces actionable advisories for the dashboard, derived from history
+ * series, index coverage, and current budget/cache state. Pure read-only.
+ *
+ * Each advisory is shaped as:
+ *   ['level' => 'info'|'warn'|'crit', 'title' => string, 'body' => string, 'cta' => ['label' => string, 'url' => string]|null]
+ */
+class RecommendationsService extends Component
+{
+    public const LEVEL_INFO = 'info';
+    public const LEVEL_WARN = 'warn';
+    public const LEVEL_CRIT = 'crit';
+
+    /**
+     * @param array $context  Pre-computed values the dashboard already has, to avoid duplicate work.
+     *                        Keys: dailySeries (list), coverage (list per-site), budget (assoc),
+     *                        cacheHitRate (?float), zeroResultRate (?float), totalEntries (int).
+     * @return list<array{level: string, title: string, body: string, cta: ?array{label: string, url: string}}>
+     */
+    public function build(array $context): array
+    {
+        $out = [];
+
+        $budget = $context['budget'] ?? null;
+        if (is_array($budget) && (float)($budget['cap'] ?? 0) > 0) {
+            $ratio = (float)$budget['ratio'];
+            if ($ratio >= 0.9) {
+                $out[] = $this->advisory(
+                    self::LEVEL_CRIT,
+                    'Daily cost budget at ' . round($ratio * 100) . '%',
+                    sprintf('$%.4f of $%.2f spent today. New RAG requests will be rejected at 100%%.',
+                        $budget['spent'], $budget['cap']),
+                    'Adjust budget',
+                    'ai-search/settings#budgets'
+                );
+            } elseif ($ratio >= 0.75) {
+                $out[] = $this->advisory(
+                    self::LEVEL_WARN,
+                    'Daily cost budget at ' . round($ratio * 100) . '%',
+                    sprintf('$%.4f of $%.2f spent today.', $budget['spent'], $budget['cap']),
+                    'Adjust budget',
+                    'ai-search/settings#budgets'
+                );
+            } elseif (!empty($budget['etaDays']) && $budget['etaDays'] < 7) {
+                $out[] = $this->advisory(
+                    self::LEVEL_INFO,
+                    'Projected to hit cap in ' . $budget['etaDays'] . ' days',
+                    'Based on 7-day burn rate. Raise the daily cap or reduce RAG traffic if this is unexpected.',
+                    'Adjust budget',
+                    'ai-search/settings#budgets'
+                );
+            }
+        }
+
+        $coverage = $context['coverage'] ?? [];
+        $totalStale = 0;
+        $totalNotIndexed = 0;
+        $totalAll = 0;
+        foreach ($coverage as $c) {
+            $totalStale += (int)($c['stale'] ?? 0);
+            $totalNotIndexed += (int)($c['notIndexed'] ?? 0);
+            $totalAll += (int)($c['total'] ?? 0);
+        }
+        if ($totalAll > 0) {
+            $staleRatio = $totalStale / $totalAll;
+            if ($staleRatio > 0.05) {
+                $out[] = $this->advisory(
+                    self::LEVEL_WARN,
+                    "{$totalStale} entries need reindex",
+                    'Entries have changed since their vectors were generated. Run a sync to refresh.',
+                    'Open Index sync',
+                    'ai-search/index'
+                );
+            }
+            if ($totalNotIndexed > 0 && ($totalNotIndexed / $totalAll) > 0.1) {
+                $out[] = $this->advisory(
+                    self::LEVEL_INFO,
+                    "{$totalNotIndexed} entries not yet indexed",
+                    'These entries are in your indexable sections but have no stored vectors.',
+                    'View entries',
+                    'ai-search/index'
+                );
+            }
+        }
+
+        if (array_key_exists('cacheHitRate', $context) && $context['cacheHitRate'] !== null) {
+            if ($context['cacheHitRate'] < 0.15 && !empty($context['dailySeries'])) {
+                $totalSearches = array_sum(array_column($context['dailySeries'], 'searches'));
+                if ($totalSearches > 50) {
+                    $out[] = $this->advisory(
+                        self::LEVEL_INFO,
+                        'Low embedding cache hit rate',
+                        'Only ' . round($context['cacheHitRate'] * 100) . '% of queries hit the cache. Consider raising the cache TTL to reduce embedding cost.',
+                        'Tune cache',
+                        'ai-search/settings#cache'
+                    );
+                }
+            }
+        }
+
+        if (array_key_exists('zeroResultRate', $context) && $context['zeroResultRate'] !== null) {
+            if ($context['zeroResultRate'] > 0.4) {
+                $out[] = $this->advisory(
+                    self::LEVEL_WARN,
+                    round($context['zeroResultRate'] * 100) . '% of recent searches return zero results',
+                    'Inspect top zero-result queries — they often indicate missing content or overly strict thresholds.',
+                    'View zero-results',
+                    'ai-search/insights?tab=zero-results'
+                );
+            }
+        }
+
+        $series = $context['dailySeries'] ?? [];
+        if ($series && ($context['totalEntries'] ?? 0) > 0) {
+            $sevenDay = array_slice($series, -7);
+            $recentSearches = array_sum(array_column($sevenDay, 'searches'));
+            if ($recentSearches === 0) {
+                $out[] = $this->advisory(
+                    self::LEVEL_INFO,
+                    'No searches recorded in the last 7 days',
+                    'Content is indexed but the search endpoint is not receiving traffic. Verify your front-end integration.',
+                    null,
+                    null
+                );
+            }
+
+            $errors = array_sum(array_column($series, 'errors'));
+            $searches = array_sum(array_column($series, 'searches'));
+            if ($searches > 100 && $errors / $searches > 0.1) {
+                $out[] = $this->advisory(
+                    self::LEVEL_CRIT,
+                    round($errors / $searches * 100) . '% error rate',
+                    "{$errors} of {$searches} recent searches errored. Check the History errors view.",
+                    'View errors',
+                    'ai-search/insights?tab=history&errorsOnly=1'
+                );
+            }
+        }
+
+        $settings = AiSearch::getInstance()->getSettings();
+        if (empty($settings->getOpenaiApiKey())) {
+            $out[] = $this->advisory(
+                self::LEVEL_CRIT,
+                'OpenAI API key is not configured',
+                'Search and indexing will fail until a key is set.',
+                'Open settings',
+                'ai-search/settings'
+            );
+        }
+
+        return $out;
+    }
+
+    private function advisory(string $level, string $title, string $body, ?string $ctaLabel, ?string $ctaUrl): array
+    {
+        return [
+            'level' => $level,
+            'title' => $title,
+            'body' => $body,
+            'cta' => ($ctaLabel && $ctaUrl) ? ['label' => $ctaLabel, 'url' => UrlHelper::cpUrl($ctaUrl)] : null,
+        ];
+    }
+}

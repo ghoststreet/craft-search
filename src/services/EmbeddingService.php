@@ -600,16 +600,6 @@ class EmbeddingService extends Component
             return;
         }
 
-        $allowedSections = AiSearch::getInstance()->getSettings()->indexableSections;
-
-        if (!empty($allowedSections)) {
-            $section = $element->getSection();
-            if ($section === null || !in_array($section->handle, $allowedSections, true)) {
-                Logger::debug('Skipping entry in excluded section', ['entryId' => $element->id]);
-                return;
-            }
-        }
-
         $text = $this->extractTextFromElement($element);
 
         if (TextValidator::isEmpty($text)) {

@@ -10,26 +10,26 @@ use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
+use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 /**
- * Data Sync controller for content indexing management
+ * Index management page: tabs for overview/sync, entries (debug), and coverage.
+ * Replaces the previous Data Sync + Debug pages.
  */
-class DataSyncController extends Controller
+class IndexController extends Controller
 {
     protected array|int|bool $allowAnonymous = false;
 
-    /**
-     * Render the data sync page with current indexing statistics.
-     */
     public function actionIndex(): Response
     {
         $this->requireAdmin();
 
+        $request = Craft::$app->getRequest();
+        $tab = $request->getQueryParam('tab') ?: 'overview';
         $plugin = AiSearch::getInstance();
         $settings = $plugin->getSettings();
-        $db = $plugin->databaseService;
-        $stats = $db->getStatsSafe();
+        $stats = $plugin->databaseService->getStatsSafe();
 
         $hasCredentials = !empty($settings->getPostgresqlHost())
             && !empty($settings->getPostgresqlDatabase())
@@ -39,31 +39,80 @@ class DataSyncController extends Controller
         $setup = [
             'credentials' => $hasCredentials,
             'connection' => (bool)($stats['isConnected'] ?? false),
-            'schema' => ($stats['isConnected'] ?? false) ? $db->isSchemaInitialized() : false,
+            'schema' => ($stats['isConnected'] ?? false) ? $plugin->databaseService->isSchemaInitialized() : false,
             'openaiKey' => !empty($settings->getOpenaiApiKey()),
             'error' => $stats['error'] ?? null,
         ];
         $setup['ready'] = $setup['credentials'] && $setup['connection'] && $setup['schema'] && $setup['openaiKey'];
 
-        return $this->renderTemplate('ai-search/data-sync', [
+        $data = [
+            'tab' => $tab,
             'plugin' => $plugin,
+            'settings' => $settings,
             'stats' => $stats,
             'setup' => $setup,
             'syncStarted' => Craft::$app->getSession()->getFlash('ai-search-sync-started', false),
+            'selectedSubnavItem' => 'index',
+        ];
+
+        if ($tab === 'entries') {
+            $filters = [
+                'section' => $request->getQueryParam('section') ?: null,
+                'siteId' => (int)($request->getQueryParam('siteId') ?: Craft::$app->getSites()->getCurrentSite()->id),
+                'status' => $request->getQueryParam('status') ?: null,
+                'page' => (int)($request->getQueryParam('page') ?: 1),
+            ];
+
+            try {
+                $result = $plugin->indexingDebugService->getEntryRows($filters);
+                $error = null;
+            } catch (DatabaseException $e) {
+                $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 50, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
+                $error = $e->getMessage();
+            }
+
+            $data['result'] = $result;
+            $data['filters'] = $filters;
+            $data['sections'] = Craft::$app->getEntries()->getAllSections();
+            $data['sites'] = Craft::$app->getSites()->getAllSites();
+            $data['error'] = $error;
+        } elseif ($tab === 'coverage') {
+            $data['coverage'] = $plugin->indexingDebugService->getCoverageBySite();
+        }
+
+        return $this->renderTemplate('ai-search/index-mgmt/index', $data);
+    }
+
+    public function actionEntry(): Response
+    {
+        $this->requireAdmin();
+
+        $request = Craft::$app->getRequest();
+        $elementId = (int)$request->getRequiredQueryParam('elementId');
+        $siteId = (int)$request->getRequiredQueryParam('siteId');
+
+        $plugin = AiSearch::getInstance();
+
+        try {
+            $inspection = $plugin->indexingDebugService->inspectElement($elementId, $siteId);
+            $error = null;
+        } catch (DatabaseException $e) {
+            $inspection = null;
+            $error = $e->getMessage();
+        }
+
+        if ($inspection === null && $error === null) {
+            throw new NotFoundHttpException('Entry not found');
+        }
+
+        return $this->renderTemplate('ai-search/index-mgmt/entry', [
+            'plugin' => $plugin,
+            'inspection' => $inspection,
+            'error' => $error,
+            'selectedSubnavItem' => 'index',
         ]);
     }
 
-    /**
-     * Destructively rebuild the vector database: truncate `aisearch_vectors`,
-     * then queue an IndexEntryJob for every currently-valid entry.
-     *
-     * Search returns empty results until the queue drains. Steady-state drift
-     * between Craft and the vectors table is handled by the live element
-     * save/delete event handlers in AiSearch::registerEventHandlers(); this
-     * action is the recovery / initial-load path.
-     *
-     * @throws DatabaseException If the operation fails (caught internally for UI feedback)
-     */
     public function actionWipeAndReindex(): Response
     {
         $this->requireAdmin();
@@ -84,7 +133,6 @@ class DataSyncController extends Controller
                 ->all();
 
             $queue = Craft::$app->getQueue();
-
             foreach ($entries as $entry) {
                 $queue->push(new IndexEntryJob([
                     'entryId' => (int)$entry['id'],
@@ -97,25 +145,18 @@ class DataSyncController extends Controller
 
             Craft::$app->getSession()->setFlash('ai-search-sync-started', true);
             Craft::$app->getSession()->setNotice(
-                Craft::t('ai-search', 'Search index cleared. {count} entries queued for reindexing. Search results will return as the queue processes.', [
-                    'count' => $count,
-                ])
+                Craft::t('ai-search', 'Search index cleared. {count} entries queued for reindexing.', ['count' => $count])
             );
         } catch (DatabaseException $e) {
             Logger::exception($e, 'syncReindex');
             Craft::$app->getSession()->setError(
-                Craft::t('ai-search', 'Failed to start sync: {error}', [
-                    'error' => $e->getMessage(),
-                ])
+                Craft::t('ai-search', 'Failed to start sync: {error}', ['error' => $e->getMessage()])
             );
         }
 
-        return $this->redirect('ai-search/data-sync');
+        return $this->redirect('ai-search/index');
     }
 
-    /**
-     * Return current indexing statistics as JSON for AJAX polling.
-     */
     public function actionGetStats(): Response
     {
         $this->requireAdmin();
@@ -134,5 +175,10 @@ class DataSyncController extends Controller
         } catch (\Throwable $e) {
             return ApiResponseHelper::jsonError($this, $e, 'getStats');
         }
+    }
+
+    public function actionLegacyRedirect(): Response
+    {
+        return $this->redirect('ai-search/index');
     }
 }

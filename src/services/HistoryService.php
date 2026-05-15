@@ -5,7 +5,6 @@ namespace ghoststreet\craftaisearch\services;
 use Craft;
 use craft\db\Query;
 use craft\helpers\Db;
-use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\PricingTable;
 use ghoststreet\craftaisearch\jobs\PruneHistoryJob;
@@ -33,11 +32,6 @@ class HistoryService extends Component
      */
     public function record(array $data): void
     {
-        $settings = AiSearch::getInstance()->getSettings();
-        if (!$settings->historyEnabled) {
-            return;
-        }
-
         $embeddingTokens = (int)($data['embeddingTokens'] ?? 0);
         $ragIn = (int)($data['ragInputTokens'] ?? 0);
         $ragOut = (int)($data['ragOutputTokens'] ?? 0);
@@ -326,6 +320,157 @@ class HistoryService extends Component
         usort($rows, static fn($a, $b) => $b['delta'] <=> $a['delta']);
 
         return array_slice($rows, 0, $limit);
+    }
+
+    /**
+     * Daily-bucketed search stats for the last $days. Returns one row per day in
+     * chronological order, with zero-filled gaps so charts can render contiguous
+     * timelines. Grouping is done in PHP to stay portable across MySQL / Postgres.
+     *
+     * @return list<array{date: string, searches: int, tokens: int, cost: float, avgMs: int, p95Ms: int, errors: int, cacheHits: int, zeroResults: int}>
+     */
+    public function getDailySeries(int $days = 30, ?string $type = null, ?int $siteId = null): array
+    {
+        $days = max(1, min(365, $days));
+        $cutoff = Db::prepareDateForDb(new \DateTime("-{$days} days"));
+
+        $q = (new Query())
+            ->from(self::STATS_TABLE)
+            ->select(['dateCreated', 'type', 'siteId', 'totalTokens', 'cost', 'durationMs', 'hasError', 'embeddingCached', 'resultsCount'])
+            ->andWhere(['>=', 'dateCreated', $cutoff]);
+
+        if ($type !== null) {
+            $q->andWhere(['type' => $type]);
+        }
+        if ($siteId !== null) {
+            $q->andWhere(['siteId' => $siteId]);
+        }
+
+        $rows = $q->all();
+
+        $buckets = [];
+        foreach ($rows as $r) {
+            $date = substr((string)$r['dateCreated'], 0, 10);
+            if (!isset($buckets[$date])) {
+                $buckets[$date] = [
+                    'date' => $date,
+                    'searches' => 0,
+                    'tokens' => 0,
+                    'cost' => 0.0,
+                    'durations' => [],
+                    'errors' => 0,
+                    'cacheHits' => 0,
+                    'zeroResults' => 0,
+                ];
+            }
+            $buckets[$date]['searches']++;
+            $buckets[$date]['tokens'] += (int)$r['totalTokens'];
+            $buckets[$date]['cost'] += (float)$r['cost'];
+            $buckets[$date]['durations'][] = (int)$r['durationMs'];
+            if ($r['hasError']) {
+                $buckets[$date]['errors']++;
+            }
+            if ($r['embeddingCached']) {
+                $buckets[$date]['cacheHits']++;
+            }
+            if ((int)$r['resultsCount'] === 0) {
+                $buckets[$date]['zeroResults']++;
+            }
+        }
+
+        $series = [];
+        $cursor = new \DateTime("-{$days} days");
+        $end = new \DateTime('today');
+        while ($cursor <= $end) {
+            $key = $cursor->format('Y-m-d');
+            $b = $buckets[$key] ?? null;
+            $avg = 0;
+            $p95 = 0;
+            if ($b !== null && $b['durations']) {
+                $avg = (int)round(array_sum($b['durations']) / count($b['durations']));
+                $sorted = $b['durations'];
+                sort($sorted);
+                $idx = (int)floor(0.95 * (count($sorted) - 1));
+                $p95 = $sorted[$idx];
+            }
+            $series[] = [
+                'date' => $key,
+                'searches' => $b['searches'] ?? 0,
+                'tokens' => $b['tokens'] ?? 0,
+                'cost' => round($b['cost'] ?? 0.0, 6),
+                'avgMs' => $avg,
+                'p95Ms' => $p95,
+                'errors' => $b['errors'] ?? 0,
+                'cacheHits' => $b['cacheHits'] ?? 0,
+                'zeroResults' => $b['zeroResults'] ?? 0,
+            ];
+            $cursor->modify('+1 day');
+        }
+
+        return $series;
+    }
+
+    /**
+     * Embedding cache hit rate over the last $days, 0..1. Returns null when no searches.
+     */
+    public function getCacheHitRate(int $days = 30): ?float
+    {
+        $row = (new Query())
+            ->from(self::STATS_TABLE)
+            ->andWhere(['>=', 'dateCreated', Db::prepareDateForDb(new \DateTime("-{$days} days"))])
+            ->select([
+                'total' => 'COUNT(*)',
+                'hits' => 'SUM(CASE WHEN embeddingCached = 1 OR embeddingCached = TRUE THEN 1 ELSE 0 END)',
+            ])
+            ->one();
+
+        $total = (int)($row['total'] ?? 0);
+        if ($total === 0) {
+            return null;
+        }
+        return round((int)$row['hits'] / $total, 4);
+    }
+
+    /**
+     * Share of searches in the window that returned zero results, 0..1. Null when no searches.
+     */
+    public function getZeroResultRate(int $days = 30): ?float
+    {
+        $row = (new Query())
+            ->from(self::STATS_TABLE)
+            ->andWhere(['>=', 'dateCreated', Db::prepareDateForDb(new \DateTime("-{$days} days"))])
+            ->select([
+                'total' => 'COUNT(*)',
+                'zeros' => 'SUM(CASE WHEN resultsCount = 0 THEN 1 ELSE 0 END)',
+            ])
+            ->one();
+
+        $total = (int)($row['total'] ?? 0);
+        if ($total === 0) {
+            return null;
+        }
+        return round((int)$row['zeros'] / $total, 4);
+    }
+
+    /**
+     * Most recent search errors with the query text and message.
+     * Returns rows: [id, type, dateCreated, query, errorMessage].
+     */
+    public function getRecentErrors(int $limit = 5): array
+    {
+        $limit = max(1, min(50, $limit));
+        return (new Query())
+            ->from(['s' => self::STATS_TABLE])
+            ->leftJoin(['d' => self::DETAILS_TABLE], '[[d.statsId]] = [[s.id]]')
+            ->select([
+                's.id', 's.type', 's.dateCreated',
+                'query' => 'd.query',
+                'errorMessage' => 'd.errorMessage',
+            ])
+            ->andWhere(['s.hasError' => true])
+            ->orderBy(['s.dateCreated' => SORT_DESC])
+            ->limit($limit)
+            ->all();
     }
 
     /**

@@ -301,6 +301,10 @@ class SearchController extends Controller
             return $this->asJson($this->withRequestId($params['validationError']))->setStatusCode(400);
         }
 
+        if (AiSearch::getInstance()->rateLimitService->isGlobalBudgetExhausted()) {
+            return $this->ragFallbackToHybrid($params);
+        }
+
         $this->logRequest('ragSearch', $params);
 
         try {
@@ -376,6 +380,13 @@ class SearchController extends Controller
             return $response;
         }
 
+        if (AiSearch::getInstance()->rateLimitService->isGlobalBudgetExhausted()) {
+            $this->ragStreamFallbackToHybrid($params);
+            $this->releaseRateLimit();
+            Craft::$app->end();
+            return $response;
+        }
+
         $this->logRequest('ragStream', $params);
 
         $formattedSources = [];
@@ -429,6 +440,86 @@ class SearchController extends Controller
 
         Craft::$app->end();
         return $response;
+    }
+
+    /**
+     * RAG JSON fallback when the daily cost cap is hit: return hybrid results
+     * shaped like a RAG response, with no AI summary.
+     */
+    private function ragFallbackToHybrid(array $params): Response
+    {
+        $this->logRequest('ragSearchFallback', $params);
+
+        try {
+            $results = AiSearch::getInstance()->searchService->search(
+                $params['query'],
+                $params['limit'],
+                $params['siteId']
+            );
+
+            $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_RAG);
+
+            $this->recordHistory('rag', $params, [
+                'resultsCount' => count($formattedSources),
+                'results' => $formattedSources,
+                'summary' => null,
+                'confidence' => null,
+            ]);
+
+            return $this->successResponse('ragSearch', [
+                'query' => $params['query'],
+                'summary' => null,
+                'sources' => $formattedSources,
+                'count' => count($formattedSources),
+                'confidence' => null,
+                'budgetExhausted' => true,
+            ]);
+        } catch (Throwable $e) {
+            $this->recordHistory('rag', $params, [
+                'resultsCount' => 0,
+                'results' => null,
+                'errorMessage' => $e->getMessage(),
+            ]);
+            return ApiResponseHelper::jsonError($this, $e, 'ragSearch', $this->errorContext($params));
+        }
+    }
+
+    /**
+     * SSE fallback when the daily cost cap is hit: emit sources from hybrid
+     * search and a synthetic `done` event with no token stream.
+     */
+    private function ragStreamFallbackToHybrid(array $params): void
+    {
+        $this->logRequest('ragStreamFallback', $params);
+
+        $formattedSources = [];
+        $errorMessage = null;
+
+        try {
+            $results = AiSearch::getInstance()->searchService->search(
+                $params['query'],
+                $params['limit'],
+                $params['siteId']
+            );
+            $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_RAG);
+            $this->emitSse('sources', [
+                'sources' => $formattedSources,
+                'budgetExhausted' => true,
+                'requestId' => $this->requestId,
+            ]);
+            $this->emitSse('done', ['requestId' => $this->requestId]);
+        } catch (Throwable $e) {
+            $errorMessage = $e->getMessage();
+            Logger::exception($e, 'ragStreamFallback', $this->errorContext($params));
+            $this->emitSse('error', ['message' => $errorMessage, 'requestId' => $this->requestId]);
+        }
+
+        $this->recordHistory('rag', $params, [
+            'resultsCount' => count($formattedSources),
+            'results' => $formattedSources,
+            'summary' => null,
+            'errorMessage' => $errorMessage,
+        ]);
     }
 
     private function emitSse(string $event, array $data): void

@@ -8,10 +8,18 @@ use craft\base\Plugin;
 use craft\elements\Entry;
 use craft\events\ElementEvent;
 use craft\events\RegisterUrlRulesEvent;
+use craft\events\TemplateEvent;
 use craft\helpers\UrlHelper;
 use craft\services\Elements;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
+use craft\web\View;
+use ghoststreet\craftaisearch\assets\CraftSearchAsset;
+use ghoststreet\craftaisearch\assets\DashboardAsset;
+use ghoststreet\craftaisearch\assets\DebugAsset;
+use ghoststreet\craftaisearch\assets\HistoryAsset;
+use ghoststreet\craftaisearch\assets\IndexMgmtAsset;
+use ghoststreet\craftaisearch\assets\InsightsAsset;
 use ghoststreet\craftaisearch\jobs\DeleteEntryJob;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use ghoststreet\craftaisearch\models\Settings;
@@ -24,6 +32,7 @@ use ghoststreet\craftaisearch\services\IndexingDebugService;
 use ghoststreet\craftaisearch\services\OpenAIClientFactory;
 use ghoststreet\craftaisearch\services\RagSearchService;
 use ghoststreet\craftaisearch\services\RateLimitService;
+use ghoststreet\craftaisearch\services\RecommendationsService;
 use ghoststreet\craftaisearch\services\SearchService;
 use ghoststreet\craftaisearch\variables\AiSearchVariable;
 use yii\base\Event;
@@ -49,6 +58,7 @@ use yii\web\Response;
  * @property-read IndexingDebugService $indexingDebugService
  * @property-read OpenAIClientFactory $openAIClientFactory
  * @property-read HistoryService $historyService
+ * @property-read RecommendationsService $recommendationsService
  */
 class AiSearch extends Plugin
 {
@@ -108,6 +118,7 @@ class AiSearch extends Plugin
                 'rateLimitService' => RateLimitService::class,
                 'indexingDebugService' => IndexingDebugService::class,
                 'historyService' => HistoryService::class,
+                'recommendationsService' => RecommendationsService::class,
             ],
         ];
     }
@@ -137,15 +148,12 @@ class AiSearch extends Plugin
         $subNav = [];
 
         $subNav['dashboard'] = ['label' => 'Dashboard', 'url' => 'ai-search'];
+        $subNav['insights'] = ['label' => 'Insights', 'url' => 'ai-search/insights'];
+        $subNav['index'] = ['label' => 'Index', 'url' => 'ai-search/index'];
 
         if (Craft::$app->getConfig()->general->allowAdminChanges && Craft::$app->user->getIsAdmin()) {
             $subNav['settings'] = ['label' => 'Settings', 'url' => 'ai-search/settings'];
         }
-
-        $subNav['data-sync'] = ['label' => 'Data Sync', 'url' => 'ai-search/data-sync'];
-        $subNav['history'] = ['label' => 'History', 'url' => 'ai-search/history'];
-        $subNav['keywords'] = ['label' => 'Keywords', 'url' => 'ai-search/history/keywords'];
-        $subNav['debug'] = ['label' => 'Debug', 'url' => 'ai-search/debug'];
 
         $item['subnav'] = $subNav;
 
@@ -166,23 +174,6 @@ class AiSearch extends Plugin
         Craft::$app->getCache()->delete(DatabaseService::SCHEMA_CACHE_KEY);
     }
 
-    /**
-     * Check if an entry's section is allowed for indexing based on settings.
-     */
-    private function isSectionAllowed(Entry $entry): bool
-    {
-        $settings = $this->getSettings();
-        $allowedSections = $settings->indexableSections;
-
-        if (empty($allowedSections)) {
-            return true;
-        }
-
-        $section = $entry->getSection();
-
-        return $section !== null && in_array($section->handle, $allowedSections, true);
-    }
-
     private function attachEventHandlers(): void
     {
         Event::on(
@@ -194,8 +185,7 @@ class AiSearch extends Plugin
                 if ($element instanceof Entry &&
                     !$element->getIsDraft() &&
                     !$element->getIsRevision() &&
-                    $element->getUrl() !== null &&
-                    $this->isSectionAllowed($element)) {
+                    $element->getUrl() !== null) {
                     $enabledForSite = $element->getEnabledForSite((int)$element->siteId);
                     $job = $enabledForSite
                         ? new IndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
@@ -242,18 +232,24 @@ class AiSearch extends Plugin
                 $event->rules['POST ai-search/settings/test-database-connection'] = 'ai-search/settings/test-database-connection';
                 $event->rules['POST ai-search/settings/test-api-key'] = 'ai-search/settings/test-api-key';
 
-                $event->rules['ai-search/data-sync'] = 'ai-search/data-sync/index';
-                $event->rules['POST ai-search/data-sync/wipe-and-reindex'] = 'ai-search/data-sync/wipe-and-reindex';
-                $event->rules['POST ai-search/data-sync/get-stats'] = 'ai-search/data-sync/get-stats';
+                // Index management (consolidated from data-sync + debug)
+                $event->rules['ai-search/index'] = 'ai-search/index/index';
+                $event->rules['ai-search/index/entry'] = 'ai-search/index/entry';
+                $event->rules['POST ai-search/index/wipe-and-reindex'] = 'ai-search/index/wipe-and-reindex';
+                $event->rules['POST ai-search/index/get-stats'] = 'ai-search/index/get-stats';
 
-                $event->rules['ai-search/debug'] = 'ai-search/debug/index';
-                $event->rules['ai-search/debug/entry'] = 'ai-search/debug/entry';
+                // Insights (consolidated from history + keywords)
+                $event->rules['ai-search/insights'] = 'ai-search/insights/index';
+                $event->rules['ai-search/insights/<id:\\d+>'] = 'ai-search/insights/detail';
+                $event->rules['POST ai-search/insights/prune'] = 'ai-search/insights/prune';
+                $event->rules['POST ai-search/insights/clear'] = 'ai-search/insights/clear';
 
-                $event->rules['ai-search/history'] = 'ai-search/history/index';
-                $event->rules['ai-search/history/keywords'] = 'ai-search/history/keywords';
-                $event->rules['ai-search/history/<id:\\d+>'] = 'ai-search/history/detail';
-                $event->rules['POST ai-search/history/prune'] = 'ai-search/history/prune';
-                $event->rules['POST ai-search/history/clear'] = 'ai-search/history/clear';
+                // Legacy redirects
+                $event->rules['ai-search/data-sync'] = 'ai-search/index/legacy-redirect';
+                $event->rules['ai-search/debug'] = 'ai-search/index/legacy-redirect';
+                $event->rules['ai-search/history'] = 'ai-search/insights/legacy-redirect';
+                $event->rules['ai-search/history/keywords'] = 'ai-search/insights/legacy-redirect';
+                $event->rules['ai-search/history/<id:\\d+>'] = 'ai-search/insights/detail';
             }
         );
 
@@ -262,6 +258,48 @@ class AiSearch extends Plugin
             CraftVariable::EVENT_INIT,
             function(Event $event) {
                 $event->sender->set('aiSearch', AiSearchVariable::class);
+            }
+        );
+
+        $this->registerCpAssetBundles();
+    }
+
+    /**
+     * Route CP asset bundles per page template. Mirrors the Lens plugin's
+     * approach: a single event handler in the plugin class, no scattered
+     * registerAssetBundle() calls in controllers.
+     */
+    private function registerCpAssetBundles(): void
+    {
+        Event::on(
+            View::class,
+            View::EVENT_BEFORE_RENDER_PAGE_TEMPLATE,
+            function(TemplateEvent $event) {
+                if (!Craft::$app->getRequest()->getIsCpRequest()) {
+                    return;
+                }
+                $template = (string)$event->template;
+                if (!str_starts_with($template, 'ai-search/')) {
+                    return;
+                }
+
+                $view = Craft::$app->getView();
+                $map = [
+                    'ai-search/index-mgmt' => IndexMgmtAsset::class,
+                    'ai-search/insights'   => InsightsAsset::class,
+                    'ai-search/debug'      => DebugAsset::class,
+                    'ai-search/history'    => HistoryAsset::class,
+                    'ai-search/index'      => DashboardAsset::class,
+                ];
+
+                foreach ($map as $prefix => $bundle) {
+                    if ($template === $prefix || str_starts_with($template, $prefix . '/')) {
+                        $view->registerAssetBundle($bundle);
+                        return;
+                    }
+                }
+
+                $view->registerAssetBundle(CraftSearchAsset::class);
             }
         );
     }

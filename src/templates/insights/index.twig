@@ -1,0 +1,186 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Insights' %}
+{% set selectedSubnavItem = 'insights' %}
+
+{% set days = filters.days %}
+{% set siteId = filters.siteId %}
+{% set tabParams = { days: days, siteId: siteId } %}
+
+{% block content %}
+    <ul class="aisearch-tabs">
+        <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'queries' })) }}"{% if tab == 'queries' %} class="sel"{% endif %}>Top queries</a></li>
+        <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'zero-results' })) }}"{% if tab == 'zero-results' %} class="sel"{% endif %}>Zero results</a></li>
+        <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'trending' })) }}"{% if tab == 'trending' %} class="sel"{% endif %}>Trending</a></li>
+        <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'history' })) }}"{% if tab == 'history' %} class="sel"{% endif %}>History log</a></li>
+    </ul>
+
+    <form method="get" action="{{ cpUrl('ai-search/insights') }}" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;">
+        <input type="hidden" name="tab" value="{{ tab }}">
+        <div class="field">
+            <div class="heading"><label>Time range</label></div>
+            <div class="input">
+                <div class="select">
+                    <select name="days">
+                        <option value="">All time</option>
+                        <option value="1"{% if days == 1 %} selected{% endif %}>Last 24 hours</option>
+                        <option value="7"{% if days == 7 %} selected{% endif %}>Last 7 days</option>
+                        <option value="30"{% if days == 30 %} selected{% endif %}>Last 30 days</option>
+                        <option value="90"{% if days == 90 %} selected{% endif %}>Last 90 days</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        {% if sites is not empty %}
+            <div class="field">
+                <div class="heading"><label>Site</label></div>
+                <div class="input">
+                    <div class="select">
+                        <select name="siteId">
+                            <option value="">All sites</option>
+                            {% for s in sites %}
+                                <option value="{{ s.id }}"{% if siteId == s.id %} selected{% endif %}>{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        {% if tab == 'history' %}
+            <div class="field">
+                <div class="heading"><label>Type</label></div>
+                <div class="input">
+                    <div class="select">
+                        <select name="type">
+                            <option value="">All</option>
+                            <option value="semantic"{% if filters.type == 'semantic' %} selected{% endif %}>Semantic</option>
+                            <option value="rag"{% if filters.type == 'rag' %} selected{% endif %}>RAG</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="field">
+                <div class="heading"><label>&nbsp;</label></div>
+                <div class="input">
+                    <label><input type="checkbox" name="errorsOnly" value="1"{% if filters.errorsOnly %} checked{% endif %}> Errors only</label>
+                </div>
+            </div>
+        {% endif %}
+        <div class="field"><button type="submit" class="btn">Filter</button></div>
+    </form>
+
+    {% if tab == 'queries' %}
+        <table class="data fullwidth">
+            <thead><tr><th>Query</th><th class="rightalign">Hits</th><th class="rightalign">0-result</th><th>Last seen</th></tr></thead>
+            <tbody>
+                {% for k in rows %}
+                    <tr>
+                        <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                        <td class="rightalign">{{ k.hits|number_format }}</td>
+                        <td class="rightalign">{% if k.zeroHits > 0 %}<span class="light">{{ k.zeroHits }}</span>{% else %}—{% endif %}</td>
+                        <td><span class="light">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="4" class="centeralign light">No queries recorded.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    {% elseif tab == 'zero-results' %}
+        <p class="light">Queries that returned no results. These often reveal missing content or overly strict thresholds.</p>
+        <table class="data fullwidth">
+            <thead><tr><th>Query</th><th class="rightalign">Hits</th><th>Last seen</th></tr></thead>
+            <tbody>
+                {% for k in rows %}
+                    <tr>
+                        <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                        <td class="rightalign">{{ k.hits|number_format }}</td>
+                        <td><span class="light">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="3" class="centeralign light">All searches returned results.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    {% elseif tab == 'trending' %}
+        <p class="light">Queries whose frequency rose in the last 7 days vs the prior 7-day window.</p>
+        <table class="data fullwidth">
+            <thead><tr><th>Query</th><th class="rightalign">Recent</th><th class="rightalign">Prior</th><th class="rightalign">Δ</th></tr></thead>
+            <tbody>
+                {% for k in rows %}
+                    <tr>
+                        <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                        <td class="rightalign">{{ k.recent }}</td>
+                        <td class="rightalign">{{ k.prior }}</td>
+                        <td class="rightalign">
+                            {% if k.growthPct is null %}<span class="status on" title="New"></span> new
+                            {% else %}+{{ k.growthPct }}%{% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="4" class="centeralign light">Not enough data to spot trends.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    {% elseif tab == 'history' %}
+        <table class="data fullwidth">
+            <tbody>
+                <tr>
+                    <th class="light">Searches</th><td>{{ stats.searches|number_format }}</td>
+                    <th class="light">Tokens</th><td>{{ stats.tokens|number_format }}</td>
+                    <th class="light">Total cost</th><td>${{ stats.cost|number_format(6) }}</td>
+                    <th class="light">Avg duration</th><td>{{ stats.avgDurationMs|number_format }} ms</td>
+                    <th class="light">Errors</th><td>{{ stats.errorCount|number_format }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        {% if currentUser.admin %}
+            <form method="post" style="margin: 8px 0 16px;" onsubmit="return confirm('Permanently delete all stored queries and result data? Token/cost statistics are preserved.');">
+                {{ csrfInput() }}
+                {{ actionInput('ai-search/insights/clear') }}
+                <button type="submit" class="btn"{% if detailsCount == 0 %} disabled{% endif %}>Clear history ({{ detailsCount }})</button>
+            </form>
+        {% endif %}
+
+        <table class="data fullwidth">
+            <thead>
+                <tr><th>Date</th><th>Type</th><th>Query</th><th class="rightalign">Results</th><th class="rightalign">Tokens</th><th class="rightalign">Cost</th><th class="rightalign">Duration</th></tr>
+            </thead>
+            <tbody>
+                {% for item in page.items %}
+                    {% set href = cpUrl('ai-search/insights/' ~ item.id) %}
+                    <tr>
+                        <td><a href="{{ href }}">{{ item.dateCreated|date('M j, Y g:i:s A') }}</a></td>
+                        <td>
+                            <span class="status {% if item.type == 'rag' %}on{% else %}orange{% endif %}"></span>
+                            {{ item.type }}
+                            {% if item.hasError %}<span class="status off" title="Error"></span>{% endif %}
+                        </td>
+                        <td>
+                            {% if item.detailsId %}<a href="{{ href }}">{{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}</a>
+                            {% else %}<span class="light">— cleared</span>{% endif %}
+                        </td>
+                        <td class="rightalign">{{ item.resultsCount }}</td>
+                        <td class="rightalign">{{ item.totalTokens|number_format }}{% if item.embeddingCached %} <span class="light" title="Cached">·c</span>{% endif %}</td>
+                        <td class="rightalign">${{ item.cost|number_format(6) }}</td>
+                        <td class="rightalign">{{ item.durationMs|number_format }} ms</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="centeralign light">No searches recorded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if page.pages > 1 %}
+            <nav style="margin-top: 16px;">
+                {% set baseParams = { tab: 'history', days: days, siteId: siteId, type: filters.type, errorsOnly: filters.errorsOnly ? 1 : null } %}
+                {% if page.page > 1 %}<a class="btn" href="{{ cpUrl('ai-search/insights', baseParams|merge({ page: page.page - 1 })) }}">‹ Prev</a>{% endif %}
+                <span class="light" style="margin: 0 8px;">Page {{ page.page }} of {{ page.pages }}</span>
+                {% if page.page < page.pages %}<a class="btn" href="{{ cpUrl('ai-search/insights', baseParams|merge({ page: page.page + 1 })) }}">Next ›</a>{% endif %}
+            </nav>
+        {% endif %}
+    {% endif %}
+{% endblock %}

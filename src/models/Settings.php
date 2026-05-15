@@ -52,11 +52,8 @@ class Settings extends Model
 
     public int $excerptLength = 200;
 
-    public array $indexableSections = [];
-
     public int $vectorDimensions = 1536;
 
-    public bool $historyEnabled = true;
     public int $historyRetentionDays = 30;
 
     public ?string $allowedOrigins = null;
@@ -69,7 +66,6 @@ class Settings extends Model
     public int $ragConcurrencyPerIp = 2;
     public int $ragConcurrencyGlobal = 10;
 
-    public float $costBudgetDailyPerIp = 0.5;
     public float $costBudgetDailyGlobal = 20.0;
 
     public bool $exposeStackTraces = false;
@@ -151,17 +147,12 @@ class Settings extends Model
             [['excerptLength'], 'integer', 'min' => 50, 'max' => 500],
             [['excerptLength'], 'default', 'value' => 200],
 
-            // Indexing filter validation
-            [['indexableSections'], 'each', 'rule' => ['string']],
-
             // Vector dimensions validation
             [['vectorDimensions'], 'integer'],
             [['vectorDimensions'], 'in', 'range' => [512, 1024, 1536, 3072]],
             [['vectorDimensions'], 'default', 'value' => 1536],
 
             // History tracking validation
-            [['historyEnabled'], 'boolean'],
-            [['historyEnabled'], 'default', 'value' => true],
             [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365],
             [['historyRetentionDays'], 'default', 'value' => 30],
 
@@ -170,7 +161,7 @@ class Settings extends Model
             [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
               'rateLimitRagPerMinute', 'rateLimitRagPerHour',
               'ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000],
-            [['costBudgetDailyPerIp', 'costBudgetDailyGlobal'], 'number', 'min' => 0],
+            [['costBudgetDailyGlobal'], 'number', 'min' => 0],
             [['exposeStackTraces'], 'boolean'],
             [['exposeStackTraces'], 'default', 'value' => false],
         ];

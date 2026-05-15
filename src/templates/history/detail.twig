@@ -1,7 +1,7 @@
 {% extends "_layouts/cp" %}
 
 {% set title = row.type|upper ~ ' Search' %}
-{% set selectedSubnavItem = 'history' %}
+{% set selectedSubnavItem = selectedSubnavItem ?? 'insights' %}
 
 {% set embeddingCost = embeddingRates ? (row.embeddingTokens / 1000000) * embeddingRates.input : 0 %}
 {% set ragInputCost = ragRates ? (row.ragInputTokens / 1000000) * ragRates.input : 0 %}

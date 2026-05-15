@@ -32,9 +32,6 @@ class IndexingDebugService extends Component
      */
     public function getEntryRows(array $filters = []): array
     {
-        $settings = AiSearch::getInstance()->getSettings();
-        $sectionHandles = $settings->indexableSections;
-
         $siteId = $filters['siteId'] ?? Craft::$app->getSites()->getCurrentSite()->id;
         $sectionFilter = $filters['section'] ?? null;
         $statusFilter = $filters['status'] ?? null;
@@ -46,11 +43,7 @@ class IndexingDebugService extends Component
             ->drafts(false)
             ->revisions(false);
 
-        if (!empty($sectionHandles)) {
-            $query->section($sectionFilter !== null && in_array($sectionFilter, $sectionHandles, true)
-                ? [$sectionFilter]
-                : $sectionHandles);
-        } elseif ($sectionFilter !== null) {
+        if ($sectionFilter !== null) {
             $query->section([$sectionFilter]);
         }
 
@@ -111,6 +104,65 @@ class IndexingDebugService extends Component
             'pageSize' => self::PAGE_SIZE,
             'counts' => $counts,
         ];
+    }
+
+    /**
+     * Aggregate index coverage per site for dashboard charts. Returns one row
+     * per Craft site (those configured for indexing) with indexed / stale /
+     * not-indexed counts. Failures during vector lookup yield zeroed entries
+     * so the chart still renders.
+     *
+     * @return list<array{siteId: int, site: string, indexed: int, stale: int, notIndexed: int, total: int}>
+     */
+    public function getCoverageBySite(): array
+    {
+        $out = [];
+        foreach (Craft::$app->getSites()->getAllSites() as $site) {
+            $entries = Entry::find()
+                ->siteId($site->id)
+                ->status(null)
+                ->drafts(false)
+                ->revisions(false)
+                ->limit(null)
+                ->all();
+
+            try {
+                $summary = AiSearch::getInstance()->databaseService->getIndexedSummary($site->id);
+            } catch (\Throwable $e) {
+                $summary = [];
+            }
+
+            $indexed = $stale = $notIndexed = 0;
+            foreach ($entries as $entry) {
+                if ($entry->getUrl() === null) {
+                    continue;
+                }
+                $key = $entry->id . '-' . $entry->siteId;
+                $row = $summary[$key] ?? null;
+                if ($row === null) {
+                    $notIndexed++;
+                    continue;
+                }
+                $vectorUpdated = strtotime($row['lastIndexed']);
+                $entryUpdated = $entry->dateUpdated ? $entry->dateUpdated->getTimestamp() : 0;
+                if ($entryUpdated > $vectorUpdated) {
+                    $stale++;
+                } else {
+                    $indexed++;
+                }
+            }
+
+            $out[] = [
+                'siteId' => (int)$site->id,
+                'site' => $site->name,
+                'indexed' => $indexed,
+                'stale' => $stale,
+                'notIndexed' => $notIndexed,
+                'total' => $indexed + $stale + $notIndexed,
+            ];
+        }
+
+        return $out;
     }
 
     /**

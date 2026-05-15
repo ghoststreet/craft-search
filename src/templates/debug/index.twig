@@ -24,11 +24,9 @@
         {% set siteOptions = siteOptions|merge([{ label: site.name, value: site.id }]) %}
     {% endfor %}
 
-    {% set sectionOptions = [{ label: 'All indexable sections'|t('ai-search'), value: '' }] %}
+    {% set sectionOptions = [{ label: 'All sections'|t('ai-search'), value: '' }] %}
     {% for section in sections %}
-        {% if settings.indexableSections is empty or section.handle in settings.indexableSections %}
-            {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}
-        {% endif %}
+        {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}
     {% endfor %}
 
     {% set statusOptions = [

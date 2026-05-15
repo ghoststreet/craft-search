@@ -1,0 +1,236 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms.twig" as forms %}
+
+{% set title = 'Index' %}
+{% set selectedSubnavItem = 'index' %}
+
+{% block content %}
+    <ul class="aisearch-tabs">
+        <li><a href="{{ cpUrl('ai-search/index', { tab: 'overview' }) }}"{% if tab == 'overview' %} class="sel"{% endif %}>Overview &amp; sync</a></li>
+        <li><a href="{{ cpUrl('ai-search/index', { tab: 'entries' }) }}"{% if tab == 'entries' %} class="sel"{% endif %}>Entries</a></li>
+        <li><a href="{{ cpUrl('ai-search/index', { tab: 'coverage' }) }}"{% if tab == 'coverage' %} class="sel"{% endif %}>Per-site coverage</a></li>
+    </ul>
+
+    {% if tab == 'overview' %}
+        {% if setup.ready %}
+            <h2>Index statistics</h2>
+            <table class="data fullwidth">
+                <tbody>
+                    <tr><th class="light">Database</th><td><span class="status on"></span> Connected</td></tr>
+                    <tr><th class="light">Indexed entries</th><td id="stat-entries">{{ stats.entryCount|number_format }}</td></tr>
+                    <tr><th class="light">Total chunks</th><td id="stat-chunks">{{ stats.chunkCount|number_format }}</td></tr>
+                    <tr>
+                        <th class="light">Last updated</th>
+                        <td>{% if stats.lastIndexed %}{{ stats.lastIndexed|date('F j, Y g:i a') }}{% else %}Never{% endif %}</td>
+                    </tr>
+                </tbody>
+            </table>
+        {% else %}
+            <h2>Finish setup</h2>
+            <p class="light">Each step links to where it can be fixed.</p>
+            <table class="data fullwidth collapsible">
+                <tbody>
+                    {% set steps = [
+                        { done: setup.credentials, label: 'Configure PostgreSQL credentials', hint: setup.credentials ? null : 'Host, database, user, and password are all required.' },
+                        { done: setup.connection, label: 'Connect to the vector database', hint: (setup.credentials and not setup.connection) ? setup.error : null },
+                        { done: setup.schema, label: 'Initialize the vector schema', hint: (setup.connection and not setup.schema) ? 'The vectors table was not found. Run the setup SQL from the README.' : null },
+                        { done: setup.openaiKey, label: 'Add the OpenAI API key', hint: setup.openaiKey ? null : 'Required to generate embeddings during indexing.' },
+                    ] %}
+                    {% for step in steps %}
+                        <tr>
+                            <td class="thin centeralign">
+                                {% if step.done %}<span class="success" data-icon="check"></span>
+                                {% else %}<span class="error" data-icon="error"></span>{% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ cpUrl('ai-search/settings') }}">{{ step.label }}</a>
+                                {% if step.hint %}<div class="light smalltext">{{ step.hint }}</div>{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+
+        <div id="reindex-progress" style="display: none; margin-top: 16px;">
+            <div class="pane">
+                <p><strong>Syncing in progress…</strong></p>
+                <p class="light">Entries: <span id="progress-entries">0</span> | Chunks: <span id="progress-chunks">0</span> | Queue: <span id="progress-queue">0</span></p>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>Sync entire index</h2>
+        <p class="light">Wipes all stored vectors and queues a re-index for every published entry. Search returns empty results until the queue drains.</p>
+        {% if setup.ready %}
+            <p class="warning with-icon">Every entry will be re-indexed, which uses your OpenAI API quota.</p>
+        {% else %}
+            <p class="light">Complete the steps above to enable syncing.</p>
+        {% endif %}
+
+        <form method="post" id="reindex-form">
+            {{ csrfInput() }}
+            {{ actionInput('ai-search/index/wipe-and-reindex') }}
+            <div class="buttons">
+                <button type="submit" class="btn submit" id="reindex-btn"
+                        {% if not setup.ready %}disabled{% endif %}
+                        onclick="return confirm('Sync the entire search index? Every entry will be re-indexed.')">
+                    Sync entire index
+                </button>
+            </div>
+        </form>
+
+    {% elseif tab == 'entries' %}
+        {% if error %}
+            <blockquote class="note warning"><p><strong>Database error.</strong> {{ error }}</p></blockquote>
+        {% endif %}
+
+        {% set counts = result.counts ?? { indexed: 0, stale: 0, 'not-indexed': 0, total: result.total } %}
+
+        {% set siteOptions = [] %}
+        {% for site in sites %}{% set siteOptions = siteOptions|merge([{ label: site.name, value: site.id }]) %}{% endfor %}
+
+        {% set sectionOptions = [{ label: 'All sections', value: '' }] %}
+        {% for section in sections %}
+            {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}
+        {% endfor %}
+
+        {% set statusOptions = [
+            { label: 'All', value: '' },
+            { label: 'Indexed', value: 'indexed' },
+            { label: 'Stale', value: 'stale' },
+            { label: 'Not indexed', value: 'not-indexed' },
+        ] %}
+
+        <form method="get" action="">
+            <input type="hidden" name="tab" value="entries">
+            <div id="toolbar" class="flex flex-nowrap">
+                {% if sites|length > 1 %}
+                    {{ forms.selectField({ label: 'Site', name: 'siteId', value: filters.siteId, options: siteOptions }) }}
+                {% else %}
+                    <input type="hidden" name="siteId" value="{{ filters.siteId }}">
+                {% endif %}
+                {{ forms.selectField({ label: 'Section', name: 'section', value: filters.section, options: sectionOptions }) }}
+                {{ forms.selectField({ label: 'Status', name: 'status', value: filters.status, options: statusOptions }) }}
+                <div class="field"><div class="heading">&nbsp;</div><div class="input"><button type="submit" class="btn submit">Filter</button></div></div>
+            </div>
+        </form>
+
+        <div class="ai-search-stats">
+            <div class="meta-item"><span class="count">{{ counts.total }}</span> <span class="label">Total</span></div>
+            <div class="meta-item"><span class="status green"></span><span class="count">{{ counts.indexed }}</span> <span class="label">Indexed</span></div>
+            <div class="meta-item"><span class="status orange"></span><span class="count">{{ counts.stale }}</span> <span class="label">Stale</span></div>
+            <div class="meta-item"><span class="status off"></span><span class="count">{{ counts['not-indexed'] }}</span> <span class="label">Not indexed</span></div>
+        </div>
+
+        {% if result.rows|length %}
+            <table class="data fullwidth">
+                <thead><tr><th>Title</th><th>Section</th><th class="thin">Status</th><th class="thin">Chunks</th><th class="thin">Last indexed</th></tr></thead>
+                <tbody>
+                    {% for row in result.rows %}
+                        <tr>
+                            <td class="cell-bold"><a href="{{ cpUrl('ai-search/index/entry', { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: '(untitled)' }}</a></td>
+                            <td>{{ row.section }}</td>
+                            <td class="thin">
+                                {% if row.status == 'indexed' %}<span class="status green"></span> Indexed
+                                {% elseif row.status == 'stale' %}<span class="status orange"></span> Stale
+                                {% else %}<span class="status off"></span> Not indexed{% endif %}
+                            </td>
+                            <td class="thin">{{ row.chunkCount }}</td>
+                            <td class="thin">{% if row.lastIndexed %}{{ row.lastIndexed|date('M j, Y g:i A') }}{% else %}<span class="light">—</span>{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="zilch"><p>No entries match these filters.</p></div>
+        {% endif %}
+
+        {% set totalPages = (result.total / result.pageSize)|round(0, 'ceil') %}
+        {% if totalPages > 1 %}
+            <div class="pagination">
+                <div class="btngroup">
+                    {% if result.page > 1 %}
+                        <a class="btn" href="{{ url(craft.app.request.pathInfo, filters|merge({ tab: 'entries', page: result.page - 1 })) }}"><span data-icon="leftangle"></span> Prev</a>
+                    {% else %}<span class="btn disabled"><span data-icon="leftangle"></span> Prev</span>{% endif %}
+                    {% if result.page < totalPages %}
+                        <a class="btn" href="{{ url(craft.app.request.pathInfo, filters|merge({ tab: 'entries', page: result.page + 1 })) }}">Next <span data-icon="rightangle"></span></a>
+                    {% else %}<span class="btn disabled">Next <span data-icon="rightangle"></span></span>{% endif %}
+                </div>
+                <span class="page-label">Page {{ result.page }} of {{ totalPages }}</span>
+            </div>
+        {% endif %}
+
+    {% elseif tab == 'coverage' %}
+        <p class="light">Index coverage per Craft site. Rebuild stale entries from the Overview &amp; sync tab.</p>
+        <table class="data fullwidth">
+            <thead><tr><th>Site</th><th class="rightalign">Indexed</th><th class="rightalign">Stale</th><th class="rightalign">Not indexed</th><th class="rightalign">Total</th><th class="rightalign">Coverage</th></tr></thead>
+            <tbody>
+                {% for c in coverage %}
+                    {% set pct = c.total > 0 ? (c.indexed / c.total * 100)|round : 0 %}
+                    <tr>
+                        <td>{{ c.site }}</td>
+                        <td class="rightalign">{{ c.indexed }}</td>
+                        <td class="rightalign">{% if c.stale > 0 %}<span class="status orange"></span> {{ c.stale }}{% else %}—{% endif %}</td>
+                        <td class="rightalign">{% if c.notIndexed > 0 %}<span class="status off"></span> {{ c.notIndexed }}{% else %}—{% endif %}</td>
+                        <td class="rightalign">{{ c.total }}</td>
+                        <td class="rightalign">{{ pct }}%</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="centeralign light">No sites configured.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}
+
+{% if tab == 'overview' and setup.ready %}
+{% js %}
+(function() {
+    function startPolling() {
+        var progress = document.getElementById('reindex-progress');
+        var btn = document.getElementById('reindex-btn');
+        if (progress) progress.style.display = 'block';
+        if (btn) btn.disabled = true;
+
+        var peakEntries = 0, peakChunks = 0;
+        var interval = setInterval(function() {
+            Craft.sendActionRequest('POST', 'ai-search/index/get-stats').then(function(response) {
+                var data = response.data;
+                if (!data.success) return;
+                var entries = document.getElementById('progress-entries');
+                var chunks = document.getElementById('progress-chunks');
+                var queue = document.getElementById('progress-queue');
+                var statEntries = document.getElementById('stat-entries');
+                var statChunks = document.getElementById('stat-chunks');
+                if (data.queueRemaining === 0) {
+                    clearInterval(interval);
+                    if (entries) entries.textContent = data.entryCount.toLocaleString();
+                    if (chunks) chunks.textContent = data.chunkCount.toLocaleString();
+                    if (statEntries) statEntries.textContent = data.entryCount.toLocaleString();
+                    if (statChunks) statChunks.textContent = data.chunkCount.toLocaleString();
+                    progress.innerHTML = '<div class="pane"><p><strong>Sync complete.</strong></p></div>';
+                    if (btn) btn.disabled = false;
+                    return;
+                }
+                peakEntries = Math.max(peakEntries, data.entryCount);
+                peakChunks = Math.max(peakChunks, data.chunkCount);
+                if (entries) entries.textContent = peakEntries.toLocaleString();
+                if (chunks) chunks.textContent = peakChunks.toLocaleString();
+                if (queue) queue.textContent = data.queueRemaining.toLocaleString();
+                if (statEntries) statEntries.textContent = peakEntries.toLocaleString();
+                if (statChunks) statChunks.textContent = peakChunks.toLocaleString();
+            }).catch(function() {});
+        }, 3000);
+    }
+    {% if syncStarted %}
+        startPolling();
+    {% else %}
+        Craft.sendActionRequest('POST', 'ai-search/index/get-stats').then(function(r) {
+            if (r.data.success && r.data.queueRemaining > 0) startPolling();
+        }).catch(function() {});
+    {% endif %}
+})();
+{% endjs %}
+{% endif %}

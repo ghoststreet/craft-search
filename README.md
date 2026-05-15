@@ -171,11 +171,20 @@ composer require ghost-street/craft-ai-search
 ### Getting Started
 
 1. Provision PostgreSQL and run the [Database Setup](#database-setup-required-admin-owned) SQL **before** enabling the plugin — the plugin will refuse to operate against a missing table.
-2. Navigate to **AI Search** in the Control Panel sidebar
-3. Go to **API Keys** and enter your OpenAI API key (as a `$ENV_VAR` reference — plain text is rejected)
-4. Go to **Database**, fill in the connection fields using the dedicated `craft_aisearch` role, and set the **Vectors Table Name** setting to whatever name you used in the schema SQL
-5. Go to **Data Sync** and click "Wipe & Re-index" to build your initial index
-6. Test your search from the same site (CSRF is enforced — see [Security model](#security-model) below)
+2. Navigate to **AI Search** in the Control Panel sidebar.
+3. In **Settings → Quick start**, set your OpenAI API key (as a `$ENV_VAR` reference — plain text is rejected) and the daily cost cap.
+4. In **Settings → Advanced → Database**, fill in the connection fields using the dedicated `craft_aisearch` role, and set the **Vectors Table Name** to whatever name you used in the schema SQL.
+5. Go to **Index → Overview & sync** and click **Sync entire index** to build your initial index.
+6. Test your search from the same site (CSRF is enforced — see [Security model](#security-model) below).
+
+## Control Panel layout
+
+The plugin exposes four sections under **AI Search**:
+
+- **Dashboard** — Health score, KPI cards (searches, cost, coverage, response time) with 30-day Chart.js sparklines, daily budget gauge, top queries / zero-result queries, recent errors, and proactive recommendations (budget warnings, stale-index advisories, cache-hit hints, error-rate spikes).
+- **Insights** — Tabs for *Top queries*, *Zero results*, *Trending* (7-day delta), and *History log* (paginated, filterable). Click any history row for token / cost / result breakdown.
+- **Index** — Tabs for *Overview & sync* (run a full reindex, watch live progress), *Entries* (per-entry indexed/stale/not-indexed status with section + site filters), and *Per-site coverage*.
+- **Settings** — Three tabs: *Quick start*, *Search behavior*, *Advanced*. Less-used fields are progressively disclosed inside `<details>` blocks.
 
 ## Search Types Explained
 
