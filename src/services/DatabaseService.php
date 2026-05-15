@@ -2,7 +2,6 @@
 
 namespace ghoststreet\craftaisearch\services;
 
-use Craft;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\helpers\Logger;
@@ -11,25 +10,26 @@ use PDOException;
 use yii\base\Component;
 
 /**
- * Database Service for managing PostgreSQL vector database with pgvector.
+ * Database Service for connecting to the pgvector-backed PostgreSQL database.
  *
  * Handles connection management (including URI parsing and IPv4 resolution
- * for cloud providers), schema initialization with pgvector indexes, and
- * CRUD operations on the vectors table.
+ * for cloud providers) and CRUD/query helpers on the admin-managed vectors
+ * table. The plugin does NOT create or modify the schema — the admin runs the
+ * SQL from the README before configuring this service.
  */
 class DatabaseService extends Component
 {
-    public const TABLE_NAME = 'aisearch_vectors';
-
-    /** Cache key used to skip repeated schema initialization checks */
+    /** Cache key used to skip repeated preflight checks within a single deploy. */
     public const SCHEMA_CACHE_KEY = 'aisearch_schema_initialized';
+
+    private const LOCAL_HOSTS = ['127.0.0.1', '::1', 'localhost'];
 
     private ?PDO $connection = null;
 
     /**
      * Get database connection, throwing an exception if not configured or connection fails.
      *
-     * @throws DatabaseException If configuration is incomplete or connection fails
+     * @throws DatabaseException If configuration is incomplete, SSL policy fails, or connection fails
      */
     public function getConnection(): PDO
     {
@@ -44,9 +44,40 @@ class DatabaseService extends Component
             throw DatabaseException::configurationIncomplete($missingFields);
         }
 
+        $this->enforceSslPolicy($config);
+
         $dsn = $this->buildDsn($config);
 
         return $this->createConnection($dsn, $config['user'], $config['password']);
+    }
+
+    /**
+     * Return the validated, fully-qualified vectors table identifier (`"schema"."table"`).
+     */
+    public function getQualifiedTable(): string
+    {
+        return AiSearch::getInstance()->getSettings()->getQualifiedVectorsTable();
+    }
+
+    /**
+     * Reject `disable` / `allow` / `prefer` SSL modes for non-localhost hosts.
+     *
+     * @throws DatabaseException
+     */
+    private function enforceSslPolicy(array $config): void
+    {
+        $host = (string)($config['host'] ?? '');
+        if (in_array($host, self::LOCAL_HOSTS, true)) {
+            return;
+        }
+
+        $weak = ['disable', 'allow', 'prefer'];
+        if (in_array($config['sslMode'], $weak, true)) {
+            throw DatabaseException::connectionError(
+                "Refusing to connect to remote host '{$host}' with sslmode='{$config['sslMode']}'. " .
+                "Use 'require', 'verify-ca', or 'verify-full'."
+            );
+        }
     }
 
     /**
@@ -154,7 +185,7 @@ class DatabaseService extends Component
             return $host;
         }
 
-        $records = dns_get_record($host, DNS_A);
+        $records = @dns_get_record($host, DNS_A);
 
         if (!empty($records) && isset($records[0]['ip']) &&
             filter_var($records[0]['ip'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
@@ -191,73 +222,63 @@ class DatabaseService extends Component
     }
 
     /**
-     * Initialize the database schema: enables the pgvector extension, creates the
-     * vectors table with a UNIQUE constraint on (elementId, siteId, chunkIndex),
-     * and adds B-tree, GIN (full-text), and HNSW (cosine similarity) indexes.
-     *
-     * @throws DatabaseException If any DDL statement fails
+     * Sets the `app.site_id` GUC the README's RLS policy reads. Without RLS enabled
+     * by the admin this is inert.
      */
-    public function initializeSchema(): void
+    public function bindSiteScope(?int $siteId): void
     {
-        $db = $this->getConnection();
+        if ($siteId === null) {
+            return;
+        }
 
         try {
-            $db->exec('CREATE EXTENSION IF NOT EXISTS vector');
-
-            $db->exec('
-                CREATE TABLE IF NOT EXISTS ' . self::TABLE_NAME . ' (
-                    id SERIAL PRIMARY KEY,
-                    "elementId" INTEGER NOT NULL,
-                    "siteId" INTEGER NOT NULL,
-                    "chunkIndex" INTEGER NOT NULL DEFAULT 0,
-                    "totalChunks" INTEGER NOT NULL DEFAULT 1,
-                    vector vector(' . $this->getVectorDimensions() . ') NOT NULL,
-                    content TEXT,
-                    "dateCreated" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    "dateUpdated" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE("elementId", "siteId", "chunkIndex")
-                )
-            ');
-
-            $db->exec('CREATE INDEX IF NOT EXISTS idx_elementId ON ' . self::TABLE_NAME . '("elementId")');
-            $db->exec('CREATE INDEX IF NOT EXISTS idx_siteId ON ' . self::TABLE_NAME . '("siteId")');
-            $db->exec('CREATE INDEX IF NOT EXISTS idx_chunkIndex ON ' . self::TABLE_NAME . '("chunkIndex")');
-
-            $db->exec('CREATE INDEX IF NOT EXISTS idx_content_gin ON ' . self::TABLE_NAME . ' USING gin(to_tsvector(\'english\', COALESCE(content, \'\')))');
-
-            $db->exec('
-                CREATE INDEX IF NOT EXISTS idx_vector_cosine ON ' . self::TABLE_NAME . '
-                USING hnsw (vector vector_cosine_ops) WITH (m = 16, ef_construction = 64)
-            ');
-
-            Logger::info('PostgreSQL schema initialized successfully with pgvector extension');
+            $db = $this->getConnection();
+            $stmt = $db->prepare("SELECT set_config('app.site_id', :siteId, true)");
+            $stmt->execute([':siteId' => (string)$siteId]);
         } catch (PDOException $e) {
-            Logger::exception($e, 'initializeSchema');
-            throw DatabaseException::schemaInitFailed($e);
+            Logger::warning('bindSiteScope failed: ' . $e->getMessage());
         }
     }
 
     /**
-     * Check whether the vectors table exists in the public schema.
+     * Verify that the configured vectors table exists. The plugin never issues
+     * DDL — admin owns the schema and must run the README SQL before this call.
      *
-     * Only catches DatabaseException (unconfigured database) and returns false.
-     * PDOException from a broken connection will bubble up to the caller.
-     *
-     * @throws PDOException If the connection is configured but broken
+     * @throws DatabaseException If the table is missing or the lookup fails
+     */
+    public function preflightSchema(): void
+    {
+        $settings = AiSearch::getInstance()->getSettings();
+        $schema = $settings->vectorsSchemaName;
+        $table = $settings->vectorsTableName;
+
+        try {
+            $db = $this->getConnection();
+            $stmt = $db->prepare('SELECT 1 FROM pg_tables WHERE schemaname = :schema AND tablename = :table');
+            $stmt->execute([':schema' => $schema, ':table' => $table]);
+
+            if ($stmt->fetch() === false) {
+                throw DatabaseException::connectionError(sprintf(
+                    'Vectors table "%s"."%s" does not exist. Run the schema SQL from the plugin README to create it.',
+                    $schema,
+                    $table
+                ));
+            }
+        } catch (PDOException $e) {
+            Logger::exception($e, 'preflightSchema');
+            throw DatabaseException::connectionError($e->getMessage(), $e);
+        }
+    }
+
+    /**
+     * Non-throwing wrapper around preflightSchema() for CP dashboards that need
+     * to render even when the vectors table is missing or the DB is unreachable.
      */
     public function isSchemaInitialized(): bool
     {
         try {
-            $db = $this->getConnection();
-
-            $result = $db->query('
-                SELECT tablename
-                FROM pg_tables
-                WHERE schemaname = \'public\'
-                AND tablename = \'' . self::TABLE_NAME . '\'
-            ');
-
-            return $result->fetch() !== false;
+            $this->preflightSchema();
+            return true;
         } catch (DatabaseException) {
             return false;
         }
@@ -272,9 +293,10 @@ class DatabaseService extends Component
     public function clearAllVectors(): int
     {
         $db = $this->getConnection();
+        $table = $this->getQualifiedTable();
 
         try {
-            $stmt = $db->prepare('DELETE FROM ' . self::TABLE_NAME);
+            $stmt = $db->prepare("DELETE FROM {$table}");
             $stmt->execute();
             $count = $stmt->rowCount();
 
@@ -288,43 +310,7 @@ class DatabaseService extends Component
     }
 
     /**
-     * Drop and reinitialize the vectors table.
-     *
-     * @throws DatabaseException If connection or DDL operations fail
-     */
-    public function wipeDatabase(): void
-    {
-        $db = $this->getConnection();
-
-        try {
-            $db->exec('DROP TABLE IF EXISTS ' . self::TABLE_NAME);
-            $this->connection = null;
-            Craft::$app->getCache()->delete(self::SCHEMA_CACHE_KEY);
-            $this->initializeSchema();
-            Logger::info('Database wiped and reinitialized');
-        } catch (PDOException $e) {
-            Logger::exception($e, 'wipeDatabase');
-            throw DatabaseException::queryFailed('wipeDatabase', $e);
-        }
-    }
-
-    /**
      * Fetch dashboard statistics (entry count, chunk count, last indexed date) with connection status.
-     *
-     * @return array{entryCount: int, chunkCount: int, lastIndexed: string|null, isConnected: bool, error: string|null}
-     * @throws DatabaseException If connection fails or queries fail
-     */
-    /**
-     * Get the configured vector dimensions from plugin settings.
-     */
-    private function getVectorDimensions(): int
-    {
-        return AiSearch::getInstance()->getSettings()->vectorDimensions;
-    }
-
-    /**
-     * Return a map keyed by "elementId-siteId" with chunkCount and lastIndexed,
-     * for use by the debug view to determine per-entry indexing status.
      *
      * @return array<string, array{chunkCount: int, lastIndexed: string}>
      * @throws DatabaseException
@@ -332,11 +318,12 @@ class DatabaseService extends Component
     public function getIndexedSummary(?int $siteId = null): array
     {
         $db = $this->getConnection();
+        $table = $this->getQualifiedTable();
 
         try {
-            $sql = '
-                SELECT "elementId", "siteId", COUNT(*) AS "chunkCount", MAX("dateUpdated") AS "lastIndexed"
-                FROM ' . self::TABLE_NAME;
+            $sql = "
+                SELECT \"elementId\", \"siteId\", COUNT(*) AS \"chunkCount\", MAX(\"dateUpdated\") AS \"lastIndexed\"
+                FROM {$table}";
             $params = [];
             if ($siteId !== null) {
                 $sql .= ' WHERE "siteId" = :siteId';
@@ -363,22 +350,20 @@ class DatabaseService extends Component
     }
 
     /**
-     * Fetch all chunk rows for an element, ordered by chunkIndex.
-     *
-     * @return array<int, array{chunkIndex: int, totalChunks: int, content: ?string, dateUpdated: string}>
      * @throws DatabaseException
      */
     public function getVectorsForElement(int $elementId, int $siteId): array
     {
         $db = $this->getConnection();
+        $table = $this->getQualifiedTable();
 
         try {
-            $stmt = $db->prepare('
-                SELECT "chunkIndex", "totalChunks", content, "dateUpdated"
-                FROM ' . self::TABLE_NAME . '
-                WHERE "elementId" = :elementId AND "siteId" = :siteId
-                ORDER BY "chunkIndex" ASC
-            ');
+            $stmt = $db->prepare("
+                SELECT \"chunkIndex\", \"totalChunks\", content, \"dateUpdated\"
+                FROM {$table}
+                WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId
+                ORDER BY \"chunkIndex\" ASC
+            ");
             $stmt->execute([':elementId' => $elementId, ':siteId' => $siteId]);
             return $stmt->fetchAll();
         } catch (PDOException $e) {
@@ -389,7 +374,7 @@ class DatabaseService extends Component
 
     public function getStats(bool $useCache = true): array
     {
-        $cache = Craft::$app->getCache();
+        $cache = \Craft::$app->getCache();
         $cacheKey = 'aisearch_dashboard_stats';
 
         if ($useCache) {
@@ -400,15 +385,16 @@ class DatabaseService extends Component
         }
 
         $db = $this->getConnection();
+        $table = $this->getQualifiedTable();
 
         try {
-            $stmt = $db->query('
+            $stmt = $db->query("
                 SELECT
-                    COUNT(DISTINCT "elementId") AS "entryCount",
-                    COUNT(*) AS "chunkCount",
-                    MAX("dateUpdated") AS "lastIndexed"
-                FROM ' . self::TABLE_NAME
-            );
+                    COUNT(DISTINCT \"elementId\") AS \"entryCount\",
+                    COUNT(*) AS \"chunkCount\",
+                    MAX(\"dateUpdated\") AS \"lastIndexed\"
+                FROM {$table}
+            ");
             $row = $stmt->fetch();
 
             $stats = [

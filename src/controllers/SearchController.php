@@ -6,22 +6,36 @@ use Craft;
 use craft\elements\Entry;
 use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftaisearch\exceptions\RateLimitException;
 use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
 use ghoststreet\craftaisearch\helpers\Logger;
+use ghoststreet\craftaisearch\helpers\PricingTable;
 use ghoststreet\craftaisearch\helpers\RequestParameterExtractor;
 use ghoststreet\craftaisearch\helpers\SearchResultFormatter;
 use ghoststreet\craftaisearch\helpers\UsageTracker;
+use ghoststreet\craftaisearch\services\RateLimitService;
 use Throwable;
+use yii\web\BadRequestHttpException;
+use yii\web\ForbiddenHttpException;
 use yii\web\Response;
 use yii\web\UnauthorizedHttpException;
 
 /**
- * Search controller
+ * Search controller.
+ *
+ * Public, anonymous-friendly, but every request must carry a valid Craft CSRF
+ * token. When `apiToken` is configured, callers must additionally present
+ * `Authorization: Bearer <token>`. Origin/Referer is constrained to the site
+ * host (plus the `allowedOrigins` setting). Per-IP rate limits, RAG
+ * concurrency caps, and daily cost budgets are enforced by RateLimitService.
  */
 class SearchController extends Controller
 {
     public $defaultAction = 'semantic-search';
+
     protected array|int|bool $allowAnonymous = self::ALLOW_ANONYMOUS_LIVE;
+
+    public $enableCsrfValidation = true;
 
     /** Short hex id tagging every log line and JSON response for this request. */
     private string $requestId = '';
@@ -29,9 +43,12 @@ class SearchController extends Controller
     /** Monotonic start time for total-request timing. */
     private float $startTime = 0.0;
 
+    /** Release token from RateLimitService::acquire(); passed to release() in afterAction. */
+    private string $rateLimitToken = '';
+
     /**
-     * Validate API token and stamp the request with a correlation id.
-     * If no token is configured in settings, requests are allowed unauthenticated.
+     * Gate every request through CSRF, origin allowlist, optional bearer token,
+     * and the per-action rate limiter. Stamps the request with a correlation id.
      */
     public function beforeAction($action): bool
     {
@@ -43,36 +60,156 @@ class SearchController extends Controller
         $this->startTime = microtime(true);
         UsageTracker::reset();
 
+        $request = Craft::$app->getRequest();
+
+        // Yii's enableCsrfValidation only fires on unsafe methods; re-validate so GET is gated too.
+        $this->requireCsrfToken($request);
+
+        $this->enforceOriginAllowlist($request);
+        $this->enforceBearerTokenIfConfigured($request);
+
+        $kind = match ($action->id) {
+            'rag-search', 'rag-stream' => RateLimitService::KIND_RAG,
+            default => RateLimitService::KIND_SEARCH,
+        };
+        $ip = (string)($request->getUserIP() ?? '0.0.0.0');
+
+        try {
+            $this->rateLimitToken = AiSearch::getInstance()->rateLimitService->acquire($kind, $ip);
+        } catch (RateLimitException $e) {
+            $this->emitRateLimitResponse($e);
+            return false;
+        }
+
+        return true;
+    }
+
+    public function afterAction($action, $result)
+    {
+        $this->releaseRateLimit();
+        return parent::afterAction($action, $result);
+    }
+
+    private function releaseRateLimit(): void
+    {
+        if ($this->rateLimitToken === '') {
+            return;
+        }
+
+        $rl = AiSearch::getInstance()->rateLimitService;
+        $rl->release($this->rateLimitToken);
+
+        $usage = UsageTracker::snapshot();
+        $cost = PricingTable::calculateCost($usage['embeddingModel'], (int)$usage['embeddingTokens'])
+            + PricingTable::calculateCost($usage['ragModel'], (int)$usage['ragInputTokens'], (int)$usage['ragOutputTokens']);
+        if ($cost > 0) {
+            $ip = (string)(Craft::$app->getRequest()->getUserIP() ?? '0.0.0.0');
+            $rl->recordCost($ip, $cost);
+        }
+
+        $this->rateLimitToken = '';
+    }
+
+    private function requireCsrfToken($request): void
+    {
+        $tokenName = Craft::$app->getConfig()->getGeneral()->csrfTokenName;
+        $presented = (string)(
+            $request->getHeaders()->get('X-CSRF-Token')
+            ?? $request->getParam($tokenName)
+            ?? ''
+        );
+
+        if ($presented === '' || !$request->validateCsrfToken($presented)) {
+            Logger::warning('csrf rejected', [
+                'requestId' => $this->requestId,
+                'ip' => $request->getUserIP(),
+                'method' => $request->getMethod(),
+            ]);
+            throw new BadRequestHttpException('Missing or invalid CSRF token.');
+        }
+    }
+
+    private function enforceOriginAllowlist($request): void
+    {
+        $origin = (string)$request->getHeaders()->get('Origin');
+        $referer = (string)$request->getHeaders()->get('Referer');
+
+        if ($origin === '' && $referer === '') {
+            return;
+        }
+
+        $candidate = $origin !== '' ? $origin : $referer;
+        $candidateHost = parse_url($candidate, PHP_URL_SCHEME) . '://' . parse_url($candidate, PHP_URL_HOST);
+        $port = parse_url($candidate, PHP_URL_PORT);
+        if ($port) {
+            $candidateHost .= ":{$port}";
+        }
+
+        $siteHost = $request->getHostInfo();
+        if ($candidateHost === $siteHost) {
+            return;
+        }
+
+        $allowed = AiSearch::getInstance()->getSettings()->getAllowedOriginsList();
+        if (in_array($candidateHost, $allowed, true)) {
+            return;
+        }
+
+        Logger::warning('origin rejected', [
+            'requestId' => $this->requestId,
+            'origin' => $candidateHost,
+            'expected' => $siteHost,
+        ]);
+
+        throw new ForbiddenHttpException('Origin not allowed.');
+    }
+
+    private function enforceBearerTokenIfConfigured($request): void
+    {
         $token = AiSearch::getInstance()->getSettings()->getApiToken();
 
         if (empty($token)) {
-            return true;
+            return;
         }
 
-        $request = Craft::$app->getRequest();
         $authorization = (string)$request->getHeaders()->get('Authorization');
         $presented = str_starts_with($authorization, 'Bearer ')
             ? substr($authorization, 7)
-            : (string)$request->getQueryParam('token');
+            : '';
 
         if ($presented !== '' && hash_equals($token, $presented)) {
-            return true;
+            return;
         }
 
-        Logger::warning('auth failed', [
+        Logger::warning('bearer auth failed', [
             'requestId' => $this->requestId,
-            'action' => $action->id,
             'ip' => $request->getUserIP(),
         ]);
 
         throw new UnauthorizedHttpException('Invalid or missing API token.');
     }
 
+    private function emitRateLimitResponse(RateLimitException $e): void
+    {
+        $response = Craft::$app->getResponse();
+        $response->getHeaders()->set('Retry-After', (string)$e->retryAfterSeconds);
+        $response->format = Response::FORMAT_JSON;
+        $response->data = [
+            'success' => false,
+            'error' => $e->getMessage(),
+            'reason' => $e->reason,
+            'retryAfter' => $e->retryAfterSeconds,
+            'requestId' => $this->requestId,
+        ];
+        $response->setStatusCode($e->httpStatus());
+    }
+
     /**
-     * Craft default search API endpoint
+     * Craft default search API endpoint.
      */
     public function actionCraftSearch(): Response
     {
+        $this->requireAcceptsJson();
         $params = RequestParameterExtractor::extractSearchParams();
 
         if ($params['validationError'] !== null) {
@@ -111,6 +248,7 @@ class SearchController extends Controller
      */
     public function actionSemanticSearch(): Response
     {
+        $this->requireAcceptsJson();
         $params = RequestParameterExtractor::extractSearchParams();
 
         if ($params['validationError'] !== null) {
@@ -149,11 +287,14 @@ class SearchController extends Controller
     }
 
     /**
-     * RAG search API endpoint with AI summary
-     * Uses hybrid search + OpenAI for intelligent responses
+     * RAG search API endpoint with AI summary.
+     * Uses hybrid search + OpenAI for intelligent responses.
      */
     public function actionRagSearch(): Response
     {
+        $this->requirePostRequest();
+        $this->requireAcceptsJson();
+
         $params = RequestParameterExtractor::extractSearchParams(20);
 
         if ($params['validationError'] !== null) {
@@ -210,9 +351,6 @@ class SearchController extends Controller
     {
         $params = RequestParameterExtractor::extractSearchParams(20);
 
-        // Release the session lock so the long-running stream doesn't block other
-        // requests from this browser (Craft would otherwise hold the lock for the
-        // entire streaming response).
         Craft::$app->getSession()->close();
 
         $response = Craft::$app->getResponse();
@@ -229,8 +367,6 @@ class SearchController extends Controller
         header('X-Accel-Buffering: no');
         header('Connection: keep-alive');
 
-        // Tell the client we're alive immediately so EventSource fires `open`
-        // before any token arrives (and any proxy buffering is exposed early).
         echo ": connected\n\n";
         @flush();
 
@@ -288,6 +424,8 @@ class SearchController extends Controller
             'summary' => $summaryBuffer !== '' ? $summaryBuffer : null,
             'errorMessage' => $errorMessage,
         ]);
+
+        $this->releaseRateLimit();
 
         Craft::$app->end();
         return $response;

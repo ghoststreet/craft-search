@@ -2,6 +2,8 @@
 
 namespace ghoststreet\craftaisearch\helpers;
 
+use Normalizer;
+
 /**
  * Helper for text validation operations.
  *
@@ -10,6 +12,8 @@ namespace ghoststreet\craftaisearch\helpers;
  */
 final class TextValidator
 {
+    public const EMBEDDING_INPUT_BYTE_CAP = 8000;
+
     /**
      * Check if a string is empty or contains only whitespace.
      *
@@ -30,5 +34,41 @@ final class TextValidator
     public static function isNotEmpty(?string $text): bool
     {
         return !self::isEmpty($text);
+    }
+
+    /**
+     * NFC-normalize, strip ASCII control chars (keeping \n and \t), drop OpenAI
+     * chat-template control sequences, and trim. Run on every user-supplied
+     * query before it reaches embeddings or LLM prompts.
+     */
+    public static function sanitizeQuery(string $text): string
+    {
+        if (class_exists(Normalizer::class)) {
+            $normalized = Normalizer::normalize($text, Normalizer::FORM_C);
+            if ($normalized !== false) {
+                $text = $normalized;
+            }
+        }
+
+        $text = preg_replace('/[\x00-\x08\x0B-\x1F\x7F]/u', '', $text) ?? $text;
+        $text = preg_replace('/<\|[^|>]*\|>/u', '', $text) ?? $text;
+        $text = preg_replace('/(^|\n)\s*(```+|~~~+)/u', '$1', $text) ?? $text;
+
+        return trim($text);
+    }
+
+    /**
+     * Same as sanitizeQuery() with an additional byte-length cap, applied right
+     * before sending the text to the embeddings endpoint.
+     */
+    public static function sanitizeEmbeddingInput(string $text): string
+    {
+        $clean = self::sanitizeQuery($text);
+
+        if (strlen($clean) > self::EMBEDDING_INPUT_BYTE_CAP) {
+            $clean = substr($clean, 0, self::EMBEDDING_INPUT_BYTE_CAP);
+        }
+
+        return $clean;
     }
 }

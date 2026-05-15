@@ -48,7 +48,7 @@ class DatabaseException extends AiSearchException
     /**
      * Create exception for connection errors with PDO details.
      */
-    public static function connectionError(string $message, Throwable $previous): self
+    public static function connectionError(string $message, ?Throwable $previous = null): self
     {
         $e = new self(
             "PostgreSQL connection error: {$message}",

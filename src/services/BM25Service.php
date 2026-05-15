@@ -28,6 +28,15 @@ class BM25Service extends Component
     /** Per extra token in the longest consecutive title match — bigram = +1.5, trigram = +3.0, etc. */
     private const TITLE_NGRAM_BONUS_PER_EXTRA_TOKEN = 1.5;
 
+    /** Interpolated into SQL; anything outside this set falls back to 'simple'. */
+    private const SUPPORTED_TS_CONFIGS = [
+        'simple', 'arabic', 'armenian', 'basque', 'catalan', 'danish', 'dutch',
+        'english', 'finnish', 'french', 'german', 'greek', 'hindi', 'hungarian',
+        'indonesian', 'irish', 'italian', 'lithuanian', 'nepali', 'norwegian',
+        'portuguese', 'romanian', 'russian', 'serbian', 'spanish', 'swedish',
+        'tamil', 'turkish', 'yiddish',
+    ];
+
     /**
      * @return array<int, array{elementId: int, siteId: int, bm25Score: float, content: string}>
      * @throws SearchException If the database query fails
@@ -35,6 +44,7 @@ class BM25Service extends Component
     public function calculateScores(string $query, ?int $siteId = null): array
     {
         $db = AiSearch::getInstance()->databaseService->getConnection();
+        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
         $normalizedQuery = trim($query);
 
         if ($normalizedQuery === '') {
@@ -88,7 +98,7 @@ class BM25Service extends Component
                         \"siteId\",
                         content,
                         {$scoreExpr} AS chunk_score
-                    FROM " . DatabaseService::TABLE_NAME . "
+                    FROM {$table}
                     WHERE {$whereExpr}{$siteFilter}
                 ), ranked AS (
                     SELECT
@@ -240,7 +250,8 @@ class BM25Service extends Component
             : Craft::$app->getSites()->getPrimarySite();
 
         $locale = $site->language ?? 'en';
+        $name = strtolower(\Locale::getDisplayLanguage($locale, 'en'));
 
-        return strtolower(\Locale::getDisplayLanguage($locale, 'en'));
+        return in_array($name, self::SUPPORTED_TS_CONFIGS, true) ? $name : 'simple';
     }
 }

@@ -24,6 +24,8 @@ class HistoryController extends Controller
         $days = $request->getParam('days');
         $days = is_numeric($days) && (int)$days > 0 ? (int)$days : null;
         $errorsOnly = (bool)$request->getParam('errorsOnly');
+        $siteIdParam = $request->getParam('siteId');
+        $siteId = is_numeric($siteIdParam) && (int)$siteIdParam > 0 ? (int)$siteIdParam : null;
 
         $history = AiSearch::getInstance()->historyService;
 
@@ -31,20 +33,53 @@ class HistoryController extends Controller
             'type' => $type,
             'days' => $days,
             'errorsOnly' => $errorsOnly,
+            'siteId' => $siteId,
         ]);
 
         $stats = $history->getStats($days);
         $detailsCount = $history->detailsCount();
+
+        $sites = $history->getAvailableSites();
 
         return $this->renderTemplate('ai-search/history/index', [
             'selectedSubnavItem' => 'history',
             'page' => $page,
             'stats' => $stats,
             'detailsCount' => $detailsCount,
+            'sites' => $sites,
             'filters' => [
                 'type' => $type,
                 'days' => $days,
                 'errorsOnly' => $errorsOnly,
+                'siteId' => $siteId,
+            ],
+        ]);
+    }
+
+    public function actionKeywords(): Response
+    {
+        $this->requireAdmin();
+
+        $request = Craft::$app->getRequest();
+        $days = $request->getParam('days');
+        $days = is_numeric($days) && (int)$days > 0 ? (int)$days : null;
+        $siteIdParam = $request->getParam('siteId');
+        $siteId = is_numeric($siteIdParam) && (int)$siteIdParam > 0 ? (int)$siteIdParam : null;
+        $limit = 25;
+
+        $history = AiSearch::getInstance()->historyService;
+
+        return $this->renderTemplate('ai-search/history/keywords', [
+            'selectedSubnavItem' => 'keywords',
+            'keywords' => [
+                'top' => $history->getTopKeywords($days, $siteId, $limit),
+                'zeroResults' => $history->getZeroResultQueries($days, $siteId, $limit),
+                'trending' => $history->getTrendingKeywords($siteId, 7, $limit),
+                'sites' => $history->getAvailableSites(),
+            ],
+            'filters' => [
+                'days' => $days,
+                'siteId' => $siteId,
             ],
         ]);
     }

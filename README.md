@@ -51,6 +51,102 @@ The pgvector extension must be installed on your PostgreSQL server. See the [pgv
 
 Most managed PostgreSQL providers (Neon, Supabase, Railway, Render, AWS RDS) offer pgvector as a one-click extension.
 
+## Database Setup (Required, Admin-Owned)
+
+**The plugin does not create or modify the database schema.** You — the admin — own the vectors table, its indexes, the runtime role, and any RLS policies. The plugin only reads from and writes rows to a table that already exists. If the table is missing, the plugin fails fast with a clear error rather than attempting any DDL.
+
+This boundary is intentional: it keeps the plugin's database role to the minimum privilege it actually needs (no `CREATE`, no `DROP`, no extension management) and prevents an attacker who compromises the Craft application from issuing DDL against your Postgres host.
+
+### One-time setup
+
+Run the following as the **project owner / superuser role** (e.g. the `postgres` role on Supabase). You only do this once per project.
+
+```sql
+-- 1. Enable pgvector
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 2. Create the vectors table.
+--    You may rename it; whatever name you choose goes into the plugin's
+--    `Vectors Table Name` setting. Identifiers must match /^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/.
+CREATE TABLE IF NOT EXISTS aisearch_vectors (
+    id            bigserial PRIMARY KEY,
+    "elementId"   integer NOT NULL,
+    "siteId"      integer NOT NULL,
+    "chunkIndex"  integer NOT NULL DEFAULT 0,
+    "totalChunks" integer NOT NULL DEFAULT 1,
+    vector        vector(1536) NOT NULL,
+    content       text,
+    "dateCreated" timestamptz NOT NULL DEFAULT now(),
+    "dateUpdated" timestamptz NOT NULL DEFAULT now(),
+    UNIQUE ("elementId", "siteId", "chunkIndex")
+);
+
+CREATE INDEX IF NOT EXISTS aisearch_vectors_element_idx ON aisearch_vectors ("elementId");
+CREATE INDEX IF NOT EXISTS aisearch_vectors_site_idx    ON aisearch_vectors ("siteId");
+CREATE INDEX IF NOT EXISTS aisearch_vectors_chunk_idx   ON aisearch_vectors ("chunkIndex");
+CREATE INDEX IF NOT EXISTS aisearch_vectors_content_gin ON aisearch_vectors
+    USING gin (to_tsvector('simple', COALESCE(content, '')));
+CREATE INDEX IF NOT EXISTS aisearch_vectors_hnsw_cos    ON aisearch_vectors
+    USING hnsw (vector vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+
+-- 3. Create a dedicated, least-privilege role for the plugin's runtime connection.
+--    DO NOT reuse your project owner / Supabase service-role credentials in the
+--    plugin settings. Use this role and this role only.
+CREATE ROLE craft_aisearch LOGIN PASSWORD 'replace-with-a-strong-password';
+GRANT USAGE ON SCHEMA public TO craft_aisearch;
+GRANT SELECT, INSERT, UPDATE, DELETE ON aisearch_vectors TO craft_aisearch;
+GRANT USAGE, SELECT ON SEQUENCE aisearch_vectors_id_seq TO craft_aisearch;
+
+-- 4. (Recommended) Enable Row-Level Security scoped by siteId.
+--    The plugin sets `app.site_id` per request, so this policy filters rows
+--    to the current site even if the runtime credential is exposed.
+ALTER TABLE aisearch_vectors ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY aisearch_vectors_site_scope ON aisearch_vectors
+    USING (
+        "siteId" = COALESCE(NULLIF(current_setting('app.site_id', true), '')::int, "siteId")
+    )
+    WITH CHECK (
+        "siteId" = COALESCE(NULLIF(current_setting('app.site_id', true), '')::int, "siteId")
+    );
+
+-- 5. Allow the runtime role to set the GUC used by the policy.
+GRANT SET ON PARAMETER app.site_id TO craft_aisearch;
+```
+
+### Plugin configuration
+
+In **AI Search → Settings → Database**:
+
+| Setting | Value |
+|---------|-------|
+| Host | Your Postgres host |
+| Database | Your database name (`postgres` on Supabase) |
+| User | `craft_aisearch` (the role you just created — never the project owner) |
+| Password | An env reference like `$CRAFT_AISEARCH_DB_PASSWORD` (plain text is rejected) |
+| SSL Mode | `require` minimum for any non-localhost host (`disable`/`allow`/`prefer` are rejected) |
+| Vectors Schema Name | `public` (or your custom schema) |
+| Vectors Table Name | `aisearch_vectors` (or whatever name you used in step 2) |
+
+The plugin validates schema/table names against `/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/` at save time — strings containing spaces, quotes, or punctuation are rejected outright. Identifiers are still interpolated into SQL, so the allowlist is the only safeguard; do not bypass it.
+
+### Vector dimensions
+
+The example schema uses `vector(1536)` to match the default embedding model. If you change the **Vector Dimensions** setting, the existing column type must match — alter the table (or recreate it and re-index) before changing the setting:
+
+```sql
+ALTER TABLE aisearch_vectors ALTER COLUMN vector TYPE vector(3072);
+```
+
+### Removing the plugin
+
+Uninstalling the plugin **does not** drop your vectors table — that data belongs to you. Drop it explicitly when you no longer want it:
+
+```sql
+DROP TABLE IF EXISTS aisearch_vectors;
+DROP ROLE  IF EXISTS craft_aisearch;
+```
+
 ## Installation
 
 ### Via Plugin Store (Recommended)
@@ -74,15 +170,12 @@ composer require ghost-street/craft-ai-search
 
 ### Getting Started
 
-1. Ensure PostgreSQL has the [pgvector](https://github.com/pgvector/pgvector) extension enabled
+1. Provision PostgreSQL and run the [Database Setup](#database-setup-required-admin-owned) SQL **before** enabling the plugin — the plugin will refuse to operate against a missing table.
 2. Navigate to **AI Search** in the Control Panel sidebar
-3. Go to **API Keys** and enter your OpenAI API key
-4. Go to **Database** and configure your PostgreSQL connection
+3. Go to **API Keys** and enter your OpenAI API key (as a `$ENV_VAR` reference — plain text is rejected)
+4. Go to **Database**, fill in the connection fields using the dedicated `craft_aisearch` role, and set the **Vectors Table Name** setting to whatever name you used in the schema SQL
 5. Go to **Data Sync** and click "Wipe & Re-index" to build your initial index
-6. Test your search:
-   ```bash
-   curl "https://your-site.com/api/hybrid-search?q=your+search+query"
-   ```
+6. Test your search from the same site (CSRF is enforced — see [Security model](#security-model) below)
 
 ## Search Types Explained
 
@@ -127,15 +220,35 @@ RAG search performs hybrid search first, then passes the top results to an OpenA
 
 **Best for:** Question answering, summarization, chatbot integrations
 
+## Security model
+
+The public search API is built for visitor traffic on the same Craft site that hosts the plugin. Three layers gate every request:
+
+1. **CSRF token (always required, no exceptions).** Browser requests send `X-CSRF-Token`; the SSE stream sends the token as a query parameter (because `EventSource` cannot set headers). Requests without a valid Craft CSRF token are rejected with `400`.
+2. **Origin/Referer allowlist.** If the browser sends an `Origin` or `Referer` header, it must match the site host or an entry in the `Allowed Origins` setting. Cross-origin embeds are rejected with `403`.
+3. **Bearer token (optional, additive).** If `apiToken` is set in plugin settings, every request must additionally present `Authorization: Bearer <token>` validated with `hash_equals`. This is the second factor for headless callers and never replaces CSRF.
+
+On top of authentication, every request passes through `RateLimitService`, which enforces:
+
+- Per-IP token buckets (per-minute + per-hour) — tighter for `rag-search` than for cheaper searches.
+- Per-IP and global concurrency caps on RAG (in-flight requests).
+- Per-IP and global daily cost ceilings in USD; when exhausted, RAG returns `503` with `Retry-After`.
+
+User input is normalized to NFC, stripped of ASCII control characters and OpenAI chat-template control sequences (`<|...|>`), and capped at **150 characters** before it ever reaches the embeddings or LLM endpoints. The LLM system prompt wraps the visitor's question in `<user_query>...</user_query>` and instructs the model to treat its contents as data — the standard structural defense against prompt injection. The assembled RAG context is additionally capped by a token budget (`maxPromptTokens`) so a large result set cannot blow up the prompt size.
+
+API keys are stored as environment-variable references (`$OPENAI_API_KEY`, `$CRAFT_AISEARCH_DB_PASSWORD`) — plain-text secrets are rejected at save time. Stack traces in error responses are gated behind the `Expose Stack Traces` setting (off by default), not by `devMode`.
+
 ## API Reference
 
-All endpoints accept GET requests with the following common parameters:
+All endpoints require a valid Craft CSRF token and accept the following common parameters:
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `q` | string | Yes | - | The search query |
+| `q` | string | Yes | - | The search query (max 150 chars; ASCII control + chat-template sequences are stripped before use) |
 | `limit` | integer | No | 10 (5 for RAG) | Maximum results to return |
 | `siteId` | integer | No | Current site | Filter results by site ID |
+
+`GET /api/hybrid-search`, `GET /api/craft-search`, and `GET /api/rag-search/stream` (SSE) handle browser flow; `POST /api/rag-search` is required for the non-streaming RAG endpoint.
 
 ### GET /api/hybrid-search
 
@@ -343,9 +456,9 @@ On managed providers, enable it through their dashboard.
 ### "Connection refused" or database errors
 
 1. Verify PostgreSQL host, port, and credentials
-2. Check that the database user has CREATE and INSERT permissions
+2. Check that the `craft_aisearch` role has `SELECT, INSERT, UPDATE, DELETE` on the vectors table and `USAGE` on the schema — the plugin needs nothing more
 3. For remote databases, ensure your IP is allowlisted
-4. Try different SSL modes if connection fails
+4. SSL must be `require` (or stricter) for any non-localhost host; the plugin will refuse weaker modes
 
 ### No results returned
 

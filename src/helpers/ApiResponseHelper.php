@@ -2,8 +2,8 @@
 
 namespace ghoststreet\craftaisearch\helpers;
 
-use Craft;
 use craft\web\Controller;
+use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\AiSearchException;
 use Throwable;
 use yii\web\Response;
@@ -19,7 +19,7 @@ final class ApiResponseHelper
     /** Maximum allowed limit for search results */
     public const MAX_LIMIT = 100;
     /** Maximum allowed query length in characters */
-    public const MAX_QUERY_LENGTH = 1000;
+    public const MAX_QUERY_LENGTH = 150;
 
     /**
      * Create an error response array.
@@ -42,7 +42,7 @@ final class ApiResponseHelper
             $response['requestId'] = $context['requestId'];
         }
 
-        if (Craft::$app->getConfig()->getGeneral()->devMode) {
+        if (AiSearch::getInstance()->getSettings()->exposeStackTraces) {
             $response['trace'] = $e->getTraceAsString();
         }
 
@@ -71,7 +71,7 @@ final class ApiResponseHelper
             return ['success' => false, 'error' => 'Query parameter "q" is required'];
         }
 
-        if (strlen($query) > self::MAX_QUERY_LENGTH) {
+        if (mb_strlen($query) > self::MAX_QUERY_LENGTH) {
             return ['success' => false, 'error' => sprintf('Query exceeds maximum length of %d characters', self::MAX_QUERY_LENGTH)];
         }
 

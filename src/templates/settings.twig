@@ -8,6 +8,7 @@
     'tab-database': { label: 'Database', url: '#tab-database' },
     'tab-hybrid-search': { label: 'Hybrid Search', url: '#tab-hybrid-search' },
     'tab-rag-search': { label: 'RAG Search', url: '#tab-rag-search' },
+    'tab-security': { label: 'Security & Limits', url: '#tab-security' },
     'tab-advanced': { label: 'Advanced', url: '#tab-advanced' },
 } %}
 
@@ -65,9 +66,8 @@
 
             <p><strong>Setup Requirements</strong></p>
             <p class="light">
-                - A PostgreSQL database (version 15+ recommended)<br>
-                - The <code>pgvector</code> extension must be enabled<br>
-                - For Supabase: Run <code>CREATE EXTENSION IF NOT EXISTS vector;</code> in the SQL Editor
+                <strong>The plugin does not create or modify the schema.</strong> You must create the vectors table, indexes, and a least-privilege role yourself before configuring this page. See the <a href="https://github.com/ghost-street/craft-ai-search#database-setup-required-admin-owned" target="_blank">Database Setup section in the README</a> for the SQL snippet.<br><br>
+                Use the dedicated <code>craft_aisearch</code> role here — never the project owner or Supabase service-role credentials.
             </p>
 
             <hr>
@@ -130,20 +130,42 @@
 
             {{ forms.selectField({
                 label: 'SSL Mode',
-                instructions: 'How to secure the database connection. Use "Require" for cloud-hosted databases like Supabase.',
+                instructions: 'How to secure the database connection. <strong>Disable / Allow / Prefer are rejected at connect time for any non-localhost host.</strong>',
                 id: 'postgresqlSslMode',
                 name: 'postgresqlSslMode',
                 value: settings.postgresqlSslMode,
                 options: [
-                    { label: 'Disable - No encryption (local development only)', value: 'disable' },
-                    { label: 'Allow - Use encryption if available', value: 'allow' },
-                    { label: 'Prefer - Try encryption first', value: 'prefer' },
+                    { label: 'Disable - localhost only', value: 'disable' },
+                    { label: 'Allow - localhost only', value: 'allow' },
+                    { label: 'Prefer - localhost only', value: 'prefer' },
                     { label: 'Require (Recommended) - Always use encryption', value: 'require' },
                     { label: 'Verify CA - Verify server certificate', value: 'verify-ca' },
                     { label: 'Verify Full - Verify certificate and hostname', value: 'verify-full' },
                 ],
                 required: true,
                 errors: settings.getErrors('postgresqlSslMode'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Vectors Schema Name',
+                instructions: 'Postgres schema where your vectors table lives. Validated as a strict identifier (letters, digits, underscores, ≤63 chars).',
+                id: 'vectorsSchemaName',
+                name: 'vectorsSchemaName',
+                value: settings.vectorsSchemaName,
+                placeholder: 'public',
+                required: true,
+                errors: settings.getErrors('vectorsSchemaName'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'Vectors Table Name',
+                instructions: 'The name of the table you created in the README setup SQL. Must already exist — the plugin will not create it.',
+                id: 'vectorsTableName',
+                name: 'vectorsTableName',
+                value: settings.vectorsTableName,
+                placeholder: 'aisearch_vectors',
+                required: true,
+                errors: settings.getErrors('vectorsTableName'),
             }) }}
             {% endnamespace %}
 
@@ -306,6 +328,113 @@
                 rows: 6,
                 placeholder: 'Example: Always respond in a friendly, conversational tone. When discussing products, highlight their key benefits.',
                 errors: settings.getErrors('ragCustomPrompt'),
+            }) }}
+            {% endnamespace %}
+        </div>
+
+        {# ── Security & Limits Tab ── #}
+        <div id="tab-security" class="hidden">
+            <h2>Origin Allowlist</h2>
+            <p class="light">Browser requests must come from this Craft site by default. Add extra origins here (comma-separated, e.g. <code>https://app.example.com,https://www.example.com</code>) for headless front-ends. CSRF is always required regardless of this setting.</p>
+
+            {% namespace 'settings' %}
+            {{ forms.autosuggestField({
+                label: 'Allowed Origins',
+                instructions: 'Comma-separated list of additional allowed origins. Leave empty for same-origin only.',
+                id: 'allowedOrigins',
+                name: 'allowedOrigins',
+                value: settings.allowedOrigins,
+                suggestEnvVars: true,
+                placeholder: 'https://app.example.com',
+                errors: settings.getErrors('allowedOrigins'),
+            }) }}
+
+            <hr>
+
+            <h2>Per-IP Rate Limits</h2>
+            <p class="light">Token-bucket caps applied to every visitor. RAG limits are stricter because LLM calls are far more expensive than embedding/search.</p>
+
+            {{ forms.textField({
+                label: 'Search requests per minute (per IP)',
+                instructions: 'Applies to /api/hybrid-search and /api/craft-search.',
+                id: 'rateLimitSearchPerMinute', name: 'rateLimitSearchPerMinute',
+                value: settings.rateLimitSearchPerMinute, type: 'number', min: '1', max: '100000',
+                required: true, errors: settings.getErrors('rateLimitSearchPerMinute'),
+            }) }}
+            {{ forms.textField({
+                label: 'Search requests per hour (per IP)',
+                id: 'rateLimitSearchPerHour', name: 'rateLimitSearchPerHour',
+                value: settings.rateLimitSearchPerHour, type: 'number', min: '1', max: '100000',
+                required: true, errors: settings.getErrors('rateLimitSearchPerHour'),
+            }) }}
+            {{ forms.textField({
+                label: 'RAG requests per minute (per IP)',
+                instructions: 'Applies to /api/rag-search and /api/rag-search/stream.',
+                id: 'rateLimitRagPerMinute', name: 'rateLimitRagPerMinute',
+                value: settings.rateLimitRagPerMinute, type: 'number', min: '1', max: '100000',
+                required: true, errors: settings.getErrors('rateLimitRagPerMinute'),
+            }) }}
+            {{ forms.textField({
+                label: 'RAG requests per hour (per IP)',
+                id: 'rateLimitRagPerHour', name: 'rateLimitRagPerHour',
+                value: settings.rateLimitRagPerHour, type: 'number', min: '1', max: '100000',
+                required: true, errors: settings.getErrors('rateLimitRagPerHour'),
+            }) }}
+
+            <hr>
+
+            <h2>RAG Concurrency Caps</h2>
+            <p class="light">Bounds the number of simultaneous in-flight RAG requests so a slow OpenAI endpoint can't pin all your Craft workers.</p>
+
+            {{ forms.textField({
+                label: 'Max concurrent RAG per IP',
+                id: 'ragConcurrencyPerIp', name: 'ragConcurrencyPerIp',
+                value: settings.ragConcurrencyPerIp, type: 'number', min: '1', max: '100000',
+                required: true, errors: settings.getErrors('ragConcurrencyPerIp'),
+            }) }}
+            {{ forms.textField({
+                label: 'Max concurrent RAG (global)',
+                id: 'ragConcurrencyGlobal', name: 'ragConcurrencyGlobal',
+                value: settings.ragConcurrencyGlobal, type: 'number', min: '1', max: '100000',
+                required: true, errors: settings.getErrors('ragConcurrencyGlobal'),
+            }) }}
+
+            <hr>
+
+            <h2>Daily Cost Budgets (USD)</h2>
+            <p class="light">When the budget is reached, RAG requests return 503 with <code>Retry-After</code>. Budgets reset every 24 hours.</p>
+
+            {{ forms.textField({
+                label: 'Per-IP daily cap (USD)',
+                id: 'costBudgetDailyPerIp', name: 'costBudgetDailyPerIp',
+                value: settings.costBudgetDailyPerIp, type: 'number', step: '0.01', min: '0',
+                errors: settings.getErrors('costBudgetDailyPerIp'),
+            }) }}
+            {{ forms.textField({
+                label: 'Global daily cap (USD)',
+                id: 'costBudgetDailyGlobal', name: 'costBudgetDailyGlobal',
+                value: settings.costBudgetDailyGlobal, type: 'number', step: '0.01', min: '0',
+                errors: settings.getErrors('costBudgetDailyGlobal'),
+            }) }}
+
+            <hr>
+
+            <h2>Prompt &amp; Error Hygiene</h2>
+
+            {{ forms.textField({
+                label: 'Max prompt tokens',
+                instructions: 'Hard cap on the assembled RAG prompt (system + user + context). The context block list is truncated to fit. Range: 500–100000.',
+                id: 'maxPromptTokens', name: 'maxPromptTokens',
+                value: settings.maxPromptTokens, type: 'number', min: '500', max: '100000',
+                required: true, errors: settings.getErrors('maxPromptTokens'),
+            }) }}
+
+            {{ forms.lightswitchField({
+                label: 'Expose stack traces in API errors',
+                instructions: 'Off by default. devMode alone is not enough; this is a separate switch so production never leaks file paths via API responses.',
+                id: 'exposeStackTraces', name: 'exposeStackTraces',
+                on: settings.exposeStackTraces,
+                errors: settings.getErrors('exposeStackTraces'),
             }) }}
             {% endnamespace %}
         </div>

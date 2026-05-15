@@ -12,8 +12,6 @@ use craft\helpers\UrlHelper;
 use craft\services\Elements;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
-use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\DeleteEntryJob;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use ghoststreet\craftaisearch\models\Settings;
@@ -25,6 +23,7 @@ use ghoststreet\craftaisearch\services\HybridSearchService;
 use ghoststreet\craftaisearch\services\IndexingDebugService;
 use ghoststreet\craftaisearch\services\OpenAIClientFactory;
 use ghoststreet\craftaisearch\services\RagSearchService;
+use ghoststreet\craftaisearch\services\RateLimitService;
 use ghoststreet\craftaisearch\services\SearchService;
 use ghoststreet\craftaisearch\variables\AiSearchVariable;
 use yii\base\Event;
@@ -46,6 +45,7 @@ use yii\web\Response;
  * @property-read BM25Service $bm25Service
  * @property-read HybridSearchService $hybridSearchService
  * @property-read RagSearchService $ragSearchService
+ * @property-read RateLimitService $rateLimitService
  * @property-read IndexingDebugService $indexingDebugService
  * @property-read OpenAIClientFactory $openAIClientFactory
  * @property-read HistoryService $historyService
@@ -65,22 +65,6 @@ class AiSearch extends Plugin
         $this->registerLogTarget();
 
         $this->attachEventHandlers();
-
-        Craft::$app->onInit(function() {
-            if (Craft::$app->getCache()->get(DatabaseService::SCHEMA_CACHE_KEY)) {
-                return;
-            }
-
-            try {
-                if (!$this->databaseService->isSchemaInitialized()) {
-                    $this->databaseService->initializeSchema();
-                }
-
-                Craft::$app->getCache()->set(DatabaseService::SCHEMA_CACHE_KEY, true, 3600);
-            } catch (DatabaseException $e) {
-                Logger::warning('Skipping schema initialization: ' . $e->getMessage());
-            }
-        });
     }
 
     /**
@@ -121,6 +105,7 @@ class AiSearch extends Plugin
                 'bm25Service' => BM25Service::class,
                 'hybridSearchService' => HybridSearchService::class,
                 'ragSearchService' => RagSearchService::class,
+                'rateLimitService' => RateLimitService::class,
                 'indexingDebugService' => IndexingDebugService::class,
                 'historyService' => HistoryService::class,
             ],
@@ -159,6 +144,7 @@ class AiSearch extends Plugin
 
         $subNav['data-sync'] = ['label' => 'Data Sync', 'url' => 'ai-search/data-sync'];
         $subNav['history'] = ['label' => 'History', 'url' => 'ai-search/history'];
+        $subNav['keywords'] = ['label' => 'Keywords', 'url' => 'ai-search/history/keywords'];
         $subNav['debug'] = ['label' => 'Debug', 'url' => 'ai-search/debug'];
 
         $item['subnav'] = $subNav;
@@ -177,15 +163,7 @@ class AiSearch extends Plugin
     {
         parent::afterUninstall();
 
-        try {
-            $this->databaseService->getConnection()->exec(
-                'DROP TABLE IF EXISTS ' . DatabaseService::TABLE_NAME
-            );
-            Craft::$app->getCache()->delete(DatabaseService::SCHEMA_CACHE_KEY);
-        } catch (\Throwable $e) {
-            Craft::error("Could not drop AI Search table: {$e->getMessage()}", __METHOD__);
-            throw $e;
-        }
+        Craft::$app->getCache()->delete(DatabaseService::SCHEMA_CACHE_KEY);
     }
 
     /**
@@ -218,9 +196,10 @@ class AiSearch extends Plugin
                     !$element->getIsRevision() &&
                     $element->getUrl() !== null &&
                     $this->isSectionAllowed($element)) {
-                    $job = $element->getStatus() === Entry::STATUS_DISABLED
-                        ? new DeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
-                        : new IndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]);
+                    $enabledForSite = $element->getEnabledForSite((int)$element->siteId);
+                    $job = $enabledForSite
+                        ? new IndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
+                        : new DeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]);
                     Craft::$app->getQueue()->push($job);
                 }
             }
@@ -271,6 +250,7 @@ class AiSearch extends Plugin
                 $event->rules['ai-search/debug/entry'] = 'ai-search/debug/entry';
 
                 $event->rules['ai-search/history'] = 'ai-search/history/index';
+                $event->rules['ai-search/history/keywords'] = 'ai-search/history/keywords';
                 $event->rules['ai-search/history/<id:\\d+>'] = 'ai-search/history/detail';
                 $event->rules['POST ai-search/history/prune'] = 'ai-search/history/prune';
                 $event->rules['POST ai-search/history/clear'] = 'ai-search/history/clear';

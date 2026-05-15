@@ -10,6 +10,8 @@ use craft\helpers\App;
  */
 class Settings extends Model
 {
+    public const IDENTIFIER_REGEX = '/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/';
+
     public ?string $openaiApiKey = null;
     public ?string $apiToken = null;
 
@@ -23,6 +25,9 @@ class Settings extends Model
     public ?string $postgresqlPassword = null;
     public string $postgresqlSslMode = 'require';
 
+    public string $vectorsTableName = 'aisearch_vectors';
+    public string $vectorsSchemaName = 'public';
+
     public float $minimumSimilarityThreshold = 0.90;
     public int $rrfK = 60;
     public float $rrfSemanticWeight = 0.3;
@@ -30,6 +35,8 @@ class Settings extends Model
 
     public string $ragModel = 'gpt-5.4-nano';
     public ?string $ragCustomPrompt = null;
+
+    public int $maxPromptTokens = 6000;
 
     public int $minChunkTokens = 100;
     public int $targetChunkTokens = 400;
@@ -52,6 +59,21 @@ class Settings extends Model
     public bool $historyEnabled = true;
     public int $historyRetentionDays = 30;
 
+    public ?string $allowedOrigins = null;
+
+    public int $rateLimitSearchPerMinute = 10;
+    public int $rateLimitSearchPerHour = 60;
+    public int $rateLimitRagPerMinute = 3;
+    public int $rateLimitRagPerHour = 20;
+
+    public int $ragConcurrencyPerIp = 2;
+    public int $ragConcurrencyGlobal = 10;
+
+    public float $costBudgetDailyPerIp = 0.5;
+    public float $costBudgetDailyGlobal = 20.0;
+
+    public bool $exposeStackTraces = false;
+
     /**
      * Validation rules for all plugin settings, grouped by feature area.
      */
@@ -60,9 +82,11 @@ class Settings extends Model
         return [
             // OpenAI API validation
             [['openaiApiKey'], 'required'],
+            [['openaiApiKey'], 'validateEnvSecret'],
 
             // API token validation
             [['apiToken'], 'string'],
+            [['apiToken'], 'validateOptionalEnvSecret'],
 
             // Embedding model validation
             [['hybridEmbeddingModel', 'ragEmbeddingModel'], 'required'],
@@ -70,10 +94,17 @@ class Settings extends Model
             [['hybridEmbeddingModel', 'ragEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large']],
 
             // PostgreSQL validation
-            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlPassword', 'postgresqlSslMode', 'postgresqlPort'], 'string'],
+            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode', 'postgresqlPort'], 'string'],
+            [['postgresqlPassword'], 'string'],
+            [['postgresqlPassword'], 'validateEnvSecret'],
             [['postgresqlPort'], 'default', 'value' => 5432],
             [['postgresqlSslMode'], 'required'],
             [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full']],
+
+            // Vectors table identifier validation
+            [['vectorsTableName', 'vectorsSchemaName'], 'required'],
+            [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
+                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).'],
 
             // Hybrid search validation
             [['minimumSimilarityThreshold'], 'number', 'min' => 0, 'max' => 1],
@@ -89,6 +120,8 @@ class Settings extends Model
             [['ragModel'], 'string'],
             [['ragModel'], 'in', 'range' => ['gpt-5.4-nano']],
             [['ragCustomPrompt'], 'string'],
+            [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000],
+            [['maxPromptTokens'], 'default', 'value' => 6000],
 
             // Content Chunking validation
             [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500],
@@ -131,7 +164,47 @@ class Settings extends Model
             [['historyEnabled'], 'default', 'value' => true],
             [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365],
             [['historyRetentionDays'], 'default', 'value' => 30],
+
+            // Security / rate-limit / budget validation
+            [['allowedOrigins'], 'string'],
+            [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
+              'rateLimitRagPerMinute', 'rateLimitRagPerHour',
+              'ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000],
+            [['costBudgetDailyPerIp', 'costBudgetDailyGlobal'], 'number', 'min' => 0],
+            [['exposeStackTraces'], 'boolean'],
+            [['exposeStackTraces'], 'default', 'value' => false],
         ];
+    }
+
+    public function validateEnvSecret(string $attribute): void
+    {
+        $value = $this->$attribute;
+
+        if (!is_string($value) || $value === '') {
+            return;
+        }
+
+        if (!str_starts_with($value, '$')) {
+            $this->addError($attribute, 'Must be an environment variable reference (e.g. $OPENAI_API_KEY). Plain-text secrets are not allowed.');
+            return;
+        }
+
+        $resolved = App::parseEnv($value);
+
+        if ($resolved === null || $resolved === '' || $resolved === $value) {
+            $this->addError($attribute, 'Environment variable ' . $value . ' is not set or is empty.');
+        }
+    }
+
+    public function validateOptionalEnvSecret(string $attribute): void
+    {
+        $value = $this->$attribute;
+
+        if (!is_string($value) || $value === '') {
+            return;
+        }
+
+        $this->validateEnvSecret($attribute);
     }
 
     /**
@@ -208,5 +281,29 @@ class Settings extends Model
     public function getApiToken(): ?string
     {
         return $this->parseEnvOrNull($this->apiToken);
+    }
+
+    public function getQualifiedVectorsTable(): string
+    {
+        $schema = $this->vectorsSchemaName;
+        $table = $this->vectorsTableName;
+
+        if (!preg_match(self::IDENTIFIER_REGEX, $schema) || !preg_match(self::IDENTIFIER_REGEX, $table)) {
+            throw new \RuntimeException('Vectors table/schema name failed identifier validation.');
+        }
+
+        return "\"{$schema}\".\"{$table}\"";
+    }
+
+    /** @return string[] */
+    public function getAllowedOriginsList(): array
+    {
+        $raw = $this->allowedOrigins ? (string)App::parseEnv($this->allowedOrigins) : '';
+
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
     }
 }

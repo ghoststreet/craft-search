@@ -168,6 +168,9 @@ class HistoryService extends Component
         if (!empty($filters['errorsOnly'])) {
             $base->andWhere(['s.hasError' => true]);
         }
+        if (!empty($filters['siteId'])) {
+            $base->andWhere(['s.siteId' => (int)$filters['siteId']]);
+        }
 
         $total = (clone $base)->count('*');
 
@@ -257,6 +260,158 @@ class HistoryService extends Component
     public function detailsCount(): int
     {
         return (int)(new Query())->from(self::DETAILS_TABLE)->count('*');
+    }
+
+    /**
+     * Most-frequent search keywords. Grouped case-insensitively on the trimmed query.
+     */
+    public function getTopKeywords(?int $days = null, ?int $siteId = null, int $limit = 10): array
+    {
+        return $this->aggregateKeywords($days, $siteId, $limit, false);
+    }
+
+    /**
+     * Most-frequent queries that returned zero results.
+     */
+    public function getZeroResultQueries(?int $days = null, ?int $siteId = null, int $limit = 10): array
+    {
+        return $this->aggregateKeywords($days, $siteId, $limit, true);
+    }
+
+    /**
+     * Keywords whose frequency rose in the last $windowDays vs the prior $windowDays.
+     */
+    public function getTrendingKeywords(?int $siteId = null, int $windowDays = 7, int $limit = 10): array
+    {
+        $limit = max(1, min(50, $limit));
+        $windowDays = max(1, $windowDays);
+        $now = new \DateTime();
+        $recentCutoff = Db::prepareDateForDb((clone $now)->modify("-{$windowDays} days"));
+        $priorCutoff = Db::prepareDateForDb((clone $now)->modify('-' . ($windowDays * 2) . ' days'));
+
+        $recent = $this->groupedCounts($recentCutoff, null, $siteId, false, true);
+        $prior = $this->groupedCounts($priorCutoff, $recentCutoff, $siteId, false, true);
+
+        $byKey = [];
+        foreach ($recent as $r) {
+            $byKey[$r['k']] = [
+                'query' => $r['query'],
+                'recent' => (int)$r['hits'],
+                'prior' => 0,
+            ];
+        }
+        foreach ($prior as $r) {
+            if (isset($byKey[$r['k']])) {
+                $byKey[$r['k']]['prior'] = (int)$r['hits'];
+            } else {
+                $byKey[$r['k']] = [
+                    'query' => $r['query'],
+                    'recent' => 0,
+                    'prior' => (int)$r['hits'],
+                ];
+            }
+        }
+
+        $rows = [];
+        foreach ($byKey as $row) {
+            $delta = $row['recent'] - $row['prior'];
+            if ($delta <= 0) {
+                continue;
+            }
+            $row['delta'] = $delta;
+            $row['growthPct'] = $row['prior'] > 0 ? round((($row['recent'] - $row['prior']) / $row['prior']) * 100, 1) : null;
+            $rows[] = $row;
+        }
+
+        usort($rows, static fn($a, $b) => $b['delta'] <=> $a['delta']);
+
+        return array_slice($rows, 0, $limit);
+    }
+
+    /**
+     * Distinct siteIds that have history rows, hydrated with names for the filter dropdown.
+     */
+    public function getAvailableSites(): array
+    {
+        $rows = (new Query())
+            ->from(self::STATS_TABLE)
+            ->select(['siteId'])
+            ->where(['not', ['siteId' => null]])
+            ->distinct()
+            ->all();
+
+        $sites = [];
+        $sitesService = Craft::$app->getSites();
+        foreach ($rows as $r) {
+            $id = (int)$r['siteId'];
+            $site = $sitesService->getSiteById($id);
+            $sites[] = [
+                'id' => $id,
+                'name' => $site?->name ?? "Site #{$id}",
+            ];
+        }
+        usort($sites, static fn($a, $b) => strcasecmp($a['name'], $b['name']));
+
+        return $sites;
+    }
+
+    private function aggregateKeywords(?int $days, ?int $siteId, int $limit, bool $zeroOnly): array
+    {
+        $limit = max(1, min(50, $limit));
+        $cutoff = ($days !== null && $days > 0)
+            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
+            : null;
+
+        return $this->groupedCounts($cutoff, null, $siteId, $zeroOnly, false, $limit);
+    }
+
+    /**
+     * Shared GROUP BY helper. Returns rows: [k, query, hits, zeroHits, lastSeen].
+     */
+    private function groupedCounts(
+        ?string $cutoffFrom,
+        ?string $cutoffTo,
+        ?int $siteId,
+        bool $zeroOnly,
+        bool $minimal = false,
+        ?int $limit = null
+    ): array {
+        $select = [
+            'k' => 'LOWER(TRIM([[d.query]]))',
+            'query' => 'MIN([[d.query]])',
+            'hits' => 'COUNT(*)',
+        ];
+        if (!$minimal) {
+            $select['zeroHits'] = 'SUM(CASE WHEN [[s.resultsCount]] = 0 THEN 1 ELSE 0 END)';
+            $select['lastSeen'] = 'MAX([[s.dateCreated]])';
+        }
+
+        $q = (new Query())
+            ->from(['d' => self::DETAILS_TABLE])
+            ->innerJoin(['s' => self::STATS_TABLE], '[[s.id]] = [[d.statsId]]')
+            ->select($select)
+            ->andWhere(['not', ['d.query' => null]])
+            ->andWhere(['<>', 'd.query', ''])
+            ->groupBy(['k'])
+            ->orderBy(['hits' => SORT_DESC]);
+
+        if ($cutoffFrom !== null) {
+            $q->andWhere(['>=', 's.dateCreated', $cutoffFrom]);
+        }
+        if ($cutoffTo !== null) {
+            $q->andWhere(['<', 's.dateCreated', $cutoffTo]);
+        }
+        if ($siteId !== null) {
+            $q->andWhere(['s.siteId' => $siteId]);
+        }
+        if ($zeroOnly) {
+            $q->andWhere(['s.resultsCount' => 0]);
+        }
+        if ($limit !== null) {
+            $q->limit($limit);
+        }
+
+        return $q->all();
     }
 
     private function maybeQueuePrune(int $retentionDays): void

@@ -78,6 +78,8 @@ class SearchService extends Component
         $settings = AiSearch::getInstance()->getSettings();
         $similarityThreshold = $applyThreshold ? max(0.0, min(1.0, (float)$settings->minimumSimilarityThreshold)) : 0.0;
 
+        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
+
         try {
             $sql = "
                 SELECT
@@ -85,7 +87,7 @@ class SearchService extends Component
                     \"siteId\",
                     1 - (vector <=> :queryVector::vector) AS similarity,
                     content
-                FROM " . DatabaseService::TABLE_NAME . "
+                FROM {$table}
             ";
 
             $conditions = [];

@@ -51,10 +51,7 @@ class IndexController extends Controller
         $this->stdout("Starting bulk indexing...\n", Console::FG_GREEN);
 
         try {
-            if (!AiSearch::getInstance()->databaseService->isSchemaInitialized()) {
-                $this->stdout("Initializing database schema...\n");
-                AiSearch::getInstance()->databaseService->initializeSchema();
-            }
+            AiSearch::getInstance()->databaseService->preflightSchema();
 
             if ($this->wipe) {
                 $this->stdout("Wiping existing vectors...\n");

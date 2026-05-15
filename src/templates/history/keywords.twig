@@ -1,0 +1,132 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Search Keywords' %}
+{% set selectedSubnavItem = 'keywords' %}
+
+{% set daysFilter = filters.days %}
+{% set siteFilter = filters.siteId %}
+
+{% block content %}
+    <form method="get" action="{{ cpUrl('ai-search/history/keywords') }}" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;">
+        <div class="field">
+            <div class="heading"><label>Time Range</label></div>
+            <div class="input">
+                <div class="select">
+                    <select name="days">
+                        <option value="">All time</option>
+                        <option value="1"{% if daysFilter == 1 %} selected{% endif %}>Last 24 hours</option>
+                        <option value="7"{% if daysFilter == 7 %} selected{% endif %}>Last 7 days</option>
+                        <option value="30"{% if daysFilter == 30 %} selected{% endif %}>Last 30 days</option>
+                        <option value="90"{% if daysFilter == 90 %} selected{% endif %}>Last 90 days</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        {% if keywords.sites is not empty %}
+            <div class="field">
+                <div class="heading"><label>Site</label></div>
+                <div class="input">
+                    <div class="select">
+                        <select name="siteId">
+                            <option value="">All sites</option>
+                            {% for s in keywords.sites %}
+                                <option value="{{ s.id }}"{% if siteFilter == s.id %} selected{% endif %}>{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        <div class="field">
+            <button type="submit" class="btn">Filter</button>
+        </div>
+    </form>
+
+    <p class="light" style="margin-bottom: 16px;">
+        Keyword analytics are computed from stored search queries. Data is bounded by the plugin's <code>historyRetentionDays</code> setting.
+    </p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+        <div>
+            <h2>Top keywords{% if daysFilter %} (last {{ daysFilter }} days){% endif %}</h2>
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>Query</th>
+                        <th class="rightalign">Hits</th>
+                        <th class="rightalign">0-result</th>
+                        <th>Last seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k in keywords.top %}
+                        <tr>
+                            <td>{{ k.query|slice(0, 80) }}{% if k.query|length > 80 %}…{% endif %}</td>
+                            <td class="rightalign">{{ k.hits|number_format }}</td>
+                            <td class="rightalign">{% if k.zeroHits > 0 %}<span class="light">{{ k.zeroHits }}</span>{% else %}—{% endif %}</td>
+                            <td><span class="light">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="centeralign light">No keywords yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            <h2>No-results queries</h2>
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>Query</th>
+                        <th class="rightalign">Hits</th>
+                        <th>Last seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k in keywords.zeroResults %}
+                        <tr>
+                            <td>{{ k.query|slice(0, 80) }}{% if k.query|length > 80 %}…{% endif %}</td>
+                            <td class="rightalign">{{ k.hits|number_format }}</td>
+                            <td><span class="light">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="3" class="centeralign light">All searches returned results.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            <h2>Trending (last 7 days)</h2>
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>Query</th>
+                        <th class="rightalign">Recent</th>
+                        <th class="rightalign">Prior</th>
+                        <th class="rightalign">Δ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k in keywords.trending %}
+                        <tr>
+                            <td>{{ k.query|slice(0, 80) }}{% if k.query|length > 80 %}…{% endif %}</td>
+                            <td class="rightalign">{{ k.recent }}</td>
+                            <td class="rightalign">{{ k.prior }}</td>
+                            <td class="rightalign">
+                                {% if k.growthPct is null %}
+                                    <span class="status on" title="New keyword"></span> new
+                                {% else %}
+                                    +{{ k.growthPct }}%
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="centeralign light">Not enough data to spot trends.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

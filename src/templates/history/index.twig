@@ -9,6 +9,7 @@
 {% set typeFilter = filters.type %}
 {% set daysFilter = filters.days %}
 {% set errorsOnly = filters.errorsOnly %}
+{% set siteFilter = filters.siteId %}
 
 {% block content %}
     <h2>Statistics{% if daysFilter %} (last {{ daysFilter }} days){% endif %}</h2>
@@ -72,6 +73,21 @@
                 </div>
             </div>
         </div>
+        {% if sites is not empty %}
+            <div class="field">
+                <div class="heading"><label>Site</label></div>
+                <div class="input">
+                    <div class="select">
+                        <select name="siteId">
+                            <option value="">All sites</option>
+                            {% for s in sites %}
+                                <option value="{{ s.id }}"{% if siteFilter == s.id %} selected{% endif %}>{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
         <div class="field">
             <div class="heading"><label>&nbsp;</label></div>
             <div class="input">
@@ -140,7 +156,7 @@
 
     {% if totalPages > 1 %}
         <nav style="margin-top: 16px; display: flex; gap: 4px; align-items: center;">
-            {% set baseParams = { type: typeFilter, days: daysFilter, errorsOnly: errorsOnly ? 1 : null } %}
+            {% set baseParams = { type: typeFilter, days: daysFilter, errorsOnly: errorsOnly ? 1 : null, siteId: siteFilter } %}
             {% if currentPage > 1 %}
                 <a class="btn" href="{{ cpUrl('ai-search/history', baseParams|merge({ page: currentPage - 1 })) }}">‹ Prev</a>
             {% endif %}

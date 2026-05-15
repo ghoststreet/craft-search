@@ -4,6 +4,7 @@ namespace ghoststreet\craftaisearch\services;
 
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\ConfigurationException;
+use GuzzleHttp\Client as GuzzleClient;
 use OpenAI;
 use OpenAI\Client;
 use yii\base\Component;
@@ -11,9 +12,16 @@ use yii\base\Component;
 /**
  * Factory for creating and caching OpenAI client instances.
  * Ensures a single client instance is reused across all services.
+ *
+ * Injects a Guzzle HTTP client with explicit timeouts — the OpenAI SDK
+ * defaults to none, which would let a stalled endpoint hold a Craft worker
+ * indefinitely and defeat RateLimitService's concurrency caps.
  */
 class OpenAIClientFactory extends Component
 {
+    public const CONNECT_TIMEOUT = 3.0;
+    public const TOTAL_TIMEOUT = 60.0;
+
     private ?Client $client = null;
 
     /**
@@ -35,7 +43,17 @@ class OpenAIClientFactory extends Component
             throw ConfigurationException::missingApiKey('OpenAI');
         }
 
-        $this->client = OpenAI::client($apiKey);
+        $http = new GuzzleClient([
+            'connect_timeout' => self::CONNECT_TIMEOUT,
+            'timeout' => self::TOTAL_TIMEOUT,
+            'read_timeout' => self::TOTAL_TIMEOUT,
+            'http_errors' => false,
+        ]);
+
+        $this->client = OpenAI::factory()
+            ->withApiKey($apiKey)
+            ->withHttpClient($http)
+            ->make();
 
         return $this->client;
     }

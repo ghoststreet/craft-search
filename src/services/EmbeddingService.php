@@ -94,7 +94,10 @@ class EmbeddingService extends Component
         $settings = AiSearch::getInstance()->getSettings();
         $model = $model ?? $settings->hybridEmbeddingModel;
 
-        $normalizedText = trim($text);
+        $normalizedText = TextValidator::sanitizeEmbeddingInput($text);
+        if (TextValidator::isEmpty($normalizedText)) {
+            throw EmbeddingException::emptyText();
+        }
         $requestCacheKey = md5($normalizedText . '_' . $model);
         $persistentCacheKey = 'aisearch_embedding_' . $requestCacheKey;
 
@@ -651,16 +654,17 @@ class EmbeddingService extends Component
         ?string $content = null,
     ): void {
         $db = AiSearch::getInstance()->databaseService->getConnection();
+        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
 
         $vectorString = VectorFormatter::toPgVector($vector);
 
         try {
-            $stmt = $db->prepare('
-                INSERT INTO ' . DatabaseService::TABLE_NAME . ' ("elementId", "siteId", "chunkIndex", "totalChunks", vector, content, "dateUpdated")
+            $stmt = $db->prepare("
+                INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, content, \"dateUpdated\")
                 VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :content, CURRENT_TIMESTAMP)
-                ON CONFLICT("elementId", "siteId", "chunkIndex")
-                DO UPDATE SET vector = EXCLUDED.vector, content = EXCLUDED.content, "totalChunks" = EXCLUDED."totalChunks", "dateUpdated" = CURRENT_TIMESTAMP
-            ');
+                ON CONFLICT(\"elementId\", \"siteId\", \"chunkIndex\")
+                DO UPDATE SET vector = EXCLUDED.vector, content = EXCLUDED.content, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"dateUpdated\" = CURRENT_TIMESTAMP
+            ");
 
             $stmt->execute([
                 ':elementId' => $elementId,
@@ -694,9 +698,10 @@ class EmbeddingService extends Component
     private function deleteExcessChunks(int $elementId, int $siteId, int $totalChunks): void
     {
         $db = AiSearch::getInstance()->databaseService->getConnection();
+        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
 
         try {
-            $stmt = $db->prepare('DELETE FROM ' . DatabaseService::TABLE_NAME . ' WHERE "elementId" = :elementId AND "siteId" = :siteId AND "chunkIndex" >= :totalChunks');
+            $stmt = $db->prepare("DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId AND \"chunkIndex\" >= :totalChunks");
             $stmt->execute([
                 ':elementId' => $elementId,
                 ':siteId' => $siteId,
@@ -711,13 +716,14 @@ class EmbeddingService extends Component
     public function deleteVector(int $elementId, ?int $siteId = null): void
     {
         $db = AiSearch::getInstance()->databaseService->getConnection();
+        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
 
         try {
             if ($siteId !== null) {
-                $stmt = $db->prepare('DELETE FROM ' . DatabaseService::TABLE_NAME . ' WHERE "elementId" = :elementId AND "siteId" = :siteId');
+                $stmt = $db->prepare("DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId");
                 $stmt->execute([':elementId' => $elementId, ':siteId' => $siteId]);
             } else {
-                $stmt = $db->prepare('DELETE FROM ' . DatabaseService::TABLE_NAME . ' WHERE "elementId" = :elementId');
+                $stmt = $db->prepare("DELETE FROM {$table} WHERE \"elementId\" = :elementId");
                 $stmt->execute([':elementId' => $elementId]);
             }
         } catch (PDOException $e) {
