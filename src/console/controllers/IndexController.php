@@ -7,6 +7,7 @@ use craft\console\Controller;
 use craft\elements\Entry;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
+use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use yii\console\ExitCode;
 use yii\helpers\Console;
@@ -61,6 +62,7 @@ class IndexController extends Controller
                 $this->stdout("Incremental mode: existing vectors will be updated.\n");
             }
         } catch (DatabaseException $e) {
+            Logger::exception($e, 'console.index');
             $this->stdout("Database error: {$e->getMessage()}\n", Console::FG_RED);
             return ExitCode::UNSPECIFIED_ERROR;
         }

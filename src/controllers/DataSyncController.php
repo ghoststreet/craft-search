@@ -8,6 +8,7 @@ use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
+use ghoststreet\craftaisearch\helpers\ErrorPresenter;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use yii\web\Response;
@@ -102,10 +103,9 @@ class DataSyncController extends Controller
                 ])
             );
         } catch (DatabaseException $e) {
-            Logger::exception($e, 'syncReindex');
             Craft::$app->getSession()->setError(
                 Craft::t('ai-search', 'Failed to start sync: {error}', [
-                    'error' => $e->getMessage(),
+                    'error' => ErrorPresenter::present($e, 'syncReindex'),
                 ])
             );
         }

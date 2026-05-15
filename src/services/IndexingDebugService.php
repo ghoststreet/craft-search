@@ -5,6 +5,7 @@ namespace ghoststreet\craftaisearch\services;
 use Craft;
 use craft\elements\Entry;
 use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\TokenEstimator;
 use yii\base\Component;
 
@@ -129,6 +130,7 @@ class IndexingDebugService extends Component
             try {
                 $summary = AiSearch::getInstance()->databaseService->getIndexedSummary($site->id);
             } catch (\Throwable $e) {
+                Logger::exception($e, 'coverageBySite', ['siteId' => $site->id]);
                 $summary = [];
             }
 

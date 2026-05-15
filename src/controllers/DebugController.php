@@ -6,6 +6,7 @@ use Craft;
 use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
+use ghoststreet\craftaisearch\helpers\ErrorPresenter;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
@@ -34,7 +35,7 @@ class DebugController extends Controller
             $error = null;
         } catch (DatabaseException $e) {
             $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 50, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
-            $error = $e->getMessage();
+            $error = ErrorPresenter::present($e, 'debug.getEntryRows', ['siteId' => $filters['siteId']]);
         }
 
         return $this->renderTemplate('ai-search/debug/index', [
@@ -64,7 +65,7 @@ class DebugController extends Controller
             $error = null;
         } catch (DatabaseException $e) {
             $inspection = null;
-            $error = $e->getMessage();
+            $error = ErrorPresenter::present($e, 'debug.inspectElement', ['elementId' => $elementId, 'siteId' => $siteId]);
         }
 
         if ($inspection === null && $error === null) {

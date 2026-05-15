@@ -31,11 +31,9 @@ final class ApiResponseHelper
      */
     public static function error(Throwable $e, string $operation = 'API error', array $context = []): array
     {
-        Logger::exception($e, $operation, $context);
-
         $response = [
             'success' => false,
-            'error' => $e->getMessage(),
+            'error' => ErrorPresenter::present($e, $operation, $context),
         ];
 
         if (!empty($context['requestId'])) {

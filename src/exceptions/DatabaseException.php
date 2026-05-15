@@ -2,6 +2,8 @@
 
 namespace ghoststreet\craftaisearch\exceptions;
 
+use ghoststreet\craftaisearch\AiSearch;
+use PDOException;
 use Throwable;
 
 /**
@@ -15,11 +17,21 @@ class DatabaseException extends AiSearchException
      */
     public static function queryFailed(string $operation, Throwable $previous): self
     {
-        return new self(
+        if ($previous instanceof PDOException && ($previous->getCode() === '42P01' || str_contains($previous->getMessage(), 'SQLSTATE[42P01]'))) {
+            $settings = AiSearch::getInstance()?->getSettings();
+            $table = $settings ? "{$settings->vectorsSchemaName}.{$settings->vectorsTableName}" : 'vector table';
+            $friendly = "The vector table \"{$table}\" does not exist yet. Set up the pgvector schema before indexing — see the plugin README.";
+            $e = new self($friendly, 0, $previous);
+            $e->httpStatus = 503;
+            return $e->setUserMessage($friendly);
+        }
+
+        $e = new self(
             "Database query failed in {$operation}: {$previous->getMessage()}",
             0,
             $previous
         );
+        return $e->setUserMessage('A database query failed. The administrator can find the technical details in the AI Search log.');
     }
 
     /**
@@ -27,11 +39,12 @@ class DatabaseException extends AiSearchException
      */
     public static function schemaInitFailed(Throwable $previous): self
     {
-        return new self(
+        $e = new self(
             "Failed to initialize PostgreSQL schema: {$previous->getMessage()}",
             0,
             $previous
         );
+        return $e->setUserMessage('Failed to initialize the pgvector schema. See the plugin README for setup instructions.');
     }
 
     /**
@@ -42,7 +55,7 @@ class DatabaseException extends AiSearchException
         $fieldList = implode(', ', $missingFields);
         $e = new self("PostgreSQL configuration incomplete. Missing: {$fieldList}");
         $e->httpStatus = 503;
-        return $e;
+        return $e->setUserMessage("Database connection is not configured. Missing: {$fieldList}.");
     }
 
     /**
@@ -56,6 +69,6 @@ class DatabaseException extends AiSearchException
             $previous
         );
         $e->httpStatus = 503;
-        return $e;
+        return $e->setUserMessage('Could not connect to the vector database. Check host, credentials, and SSL mode.');
     }
 }

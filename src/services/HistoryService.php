@@ -82,7 +82,7 @@ class HistoryService extends Component
                 throw $e;
             }
         } catch (Throwable $e) {
-            Logger::warning('HistoryService::record failed: ' . $e->getMessage());
+            Logger::exception($e, 'history.record');
             return;
         }
 
@@ -574,7 +574,7 @@ class HistoryService extends Component
                 'retentionDays' => $retentionDays,
             ]));
         } catch (Throwable $e) {
-            Logger::warning('HistoryService: failed to queue prune job: ' . $e->getMessage());
+            Logger::exception($e, 'history.queuePrune');
         }
     }
 }

@@ -4,9 +4,10 @@
 {% set fullPageForm = true %}
 
 {% set tabs = {
-    'tab-quick-start': { label: 'Quick start', url: '#tab-quick-start' },
-    'tab-behavior':    { label: 'Search behavior', url: '#tab-behavior' },
-    'tab-advanced':    { label: 'Advanced', url: '#tab-advanced' },
+    'tab-quick-start':     { label: 'Quick start', url: '#tab-quick-start' },
+    'tab-behavior':        { label: 'Search behavior', url: '#tab-behavior' },
+    'tab-vector-database': { label: 'Vector Database', url: '#tab-vector-database' },
+    'tab-advanced':        { label: 'Advanced', url: '#tab-advanced' },
 } %}
 
 {% import '_includes/forms.twig' as forms %}
@@ -184,8 +185,8 @@
         {% endnamespace %}
     </div>
 
-    {# ────── Advanced ────── #}
-    <div id="tab-advanced" class="hidden">
+    {# ────── Vector Database ────── #}
+    <div id="tab-vector-database" class="hidden">
         <h2>Database</h2>
         <p class="light">PostgreSQL with pgvector. The plugin does not create the schema — see the <a href="https://github.com/ghost-street/craft-ai-search#database-setup-required-admin-owned" target="_blank">README</a>.</p>
 
@@ -227,9 +228,10 @@
             <button type="button" class="btn" data-craftsearch-control="test-db">Test connection</button>
             <span class="settings__test-result" data-craftsearch-target="test-db-result"></span>
         </div>
+    </div>
 
-        <hr>
-
+    {# ────── Advanced ────── #}
+    <div id="tab-advanced" class="hidden">
         <h2>Chunking</h2>
 
         {% namespace 'settings' %}

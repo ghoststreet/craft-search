@@ -5,6 +5,7 @@ namespace ghoststreet\craftaisearch\controllers;
 use Craft;
 use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftaisearch\helpers\ErrorPresenter;
 use yii\web\Response;
 
 /**
@@ -59,10 +60,21 @@ class SettingsController extends Controller
         $this->requireAcceptsJson();
 
         try {
-            AiSearch::getInstance()->databaseService->getConnection();
+            $db = AiSearch::getInstance()->databaseService;
+            $db->getConnection();
+
+            if (!$db->isSchemaInitialized()) {
+                $settings = AiSearch::getInstance()->getSettings();
+                $table = $settings->getQualifiedVectorsTable();
+                return $this->asJson([
+                    'success' => false,
+                    'message' => "Connected, but the vector table {$table} does not exist. Run the pgvector schema setup — see the README.",
+                ]);
+            }
+
             return $this->asJson(['success' => true, 'message' => 'Connected successfully.']);
         } catch (\Throwable $e) {
-            return $this->asJson(['success' => false, 'message' => $e->getMessage()]);
+            return $this->asJson(['success' => false, 'message' => ErrorPresenter::present($e, 'testDatabaseConnection')]);
         }
     }
 
@@ -79,7 +91,7 @@ class SettingsController extends Controller
             $client->models()->list();
             return $this->asJson(['success' => true, 'message' => 'API key is valid.']);
         } catch (\Throwable $e) {
-            return $this->asJson(['success' => false, 'message' => $e->getMessage()]);
+            return $this->asJson(['success' => false, 'message' => ErrorPresenter::present($e, 'testApiKey')]);
         }
     }
 }

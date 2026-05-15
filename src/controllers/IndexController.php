@@ -8,6 +8,7 @@ use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
+use ghoststreet\craftaisearch\helpers\ErrorPresenter;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use yii\web\NotFoundHttpException;
@@ -68,7 +69,7 @@ class IndexController extends Controller
                 $error = null;
             } catch (DatabaseException $e) {
                 $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 50, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
-                $error = $e->getMessage();
+                $error = ErrorPresenter::present($e, 'getEntryRows', ['siteId' => $filters['siteId']]);
             }
 
             $data['result'] = $result;
@@ -98,7 +99,7 @@ class IndexController extends Controller
             $error = null;
         } catch (DatabaseException $e) {
             $inspection = null;
-            $error = $e->getMessage();
+            $error = ErrorPresenter::present($e, 'inspectElement', ['elementId' => $elementId, 'siteId' => $siteId]);
         }
 
         if ($inspection === null && $error === null) {
@@ -148,9 +149,8 @@ class IndexController extends Controller
                 Craft::t('ai-search', 'Search index cleared. {count} entries queued for reindexing.', ['count' => $count])
             );
         } catch (DatabaseException $e) {
-            Logger::exception($e, 'syncReindex');
             Craft::$app->getSession()->setError(
-                Craft::t('ai-search', 'Failed to start sync: {error}', ['error' => $e->getMessage()])
+                Craft::t('ai-search', 'Failed to start sync: {error}', ['error' => ErrorPresenter::present($e, 'syncReindex')])
             );
         }
 

@@ -12,7 +12,8 @@ class EmbeddingException extends AiSearchException
 {
     public static function emptyText(): self
     {
-        return new self('Cannot generate embedding: text cannot be empty');
+        $e = new self('Cannot generate embedding: text cannot be empty');
+        return $e->setUserMessage('Cannot generate an embedding for empty text.');
     }
 
     public static function rateLimited(Throwable $previous): self
@@ -23,7 +24,7 @@ class EmbeddingException extends AiSearchException
             $previous
         );
         $e->httpStatus = 429;
-        return $e;
+        return $e->setUserMessage('OpenAI rate limit reached. Please retry shortly.');
     }
 
     public static function quotaExceeded(Throwable $previous): self
@@ -34,7 +35,7 @@ class EmbeddingException extends AiSearchException
             $previous
         );
         $e->httpStatus = 429;
-        return $e;
+        return $e->setUserMessage('OpenAI quota exceeded. Check your OpenAI account billing.');
     }
 
     public static function invalidApiKey(Throwable $previous): self
@@ -45,11 +46,12 @@ class EmbeddingException extends AiSearchException
             $previous
         );
         $e->httpStatus = 503;
-        return $e;
+        return $e->setUserMessage('OpenAI rejected the request: the API key is invalid. Check your plugin settings.');
     }
 
     public static function apiError(string $message, Throwable $previous): self
     {
-        return new self("Failed to generate embedding: {$message}", 0, $previous);
+        $e = new self("Failed to generate embedding: {$message}", 0, $previous);
+        return $e->setUserMessage('OpenAI embedding request failed. The administrator can find the technical details in the AI Search log.');
     }
 }

@@ -236,7 +236,7 @@ class DatabaseService extends Component
             $stmt = $db->prepare("SELECT set_config('app.site_id', :siteId, true)");
             $stmt->execute([':siteId' => (string)$siteId]);
         } catch (PDOException $e) {
-            Logger::warning('bindSiteScope failed: ' . $e->getMessage());
+            Logger::exception($e, 'bindSiteScope', ['siteId' => $siteId]);
         }
     }
 

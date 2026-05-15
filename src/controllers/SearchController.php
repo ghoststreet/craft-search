@@ -196,7 +196,7 @@ class SearchController extends Controller
         $response->format = Response::FORMAT_JSON;
         $response->data = [
             'success' => false,
-            'error' => $e->getMessage(),
+            'error' => $e->userMessage(),
             'reason' => $e->reason,
             'retryAfter' => $e->retryAfterSeconds,
             'requestId' => $this->requestId,
@@ -629,7 +629,7 @@ class SearchController extends Controller
                 'ragModel' => $usage['ragModel'],
             ], $extra));
         } catch (Throwable $e) {
-            Logger::warning('recordHistory failed: ' . $e->getMessage());
+            Logger::exception($e, 'recordHistory', $this->errorContext($params));
         }
     }
 
