@@ -12,10 +12,11 @@ class Settings extends Model
 {
     public const IDENTIFIER_REGEX = '/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/';
 
-    public const SCENARIO_QUICK_START = 'quickStart';
-    public const SCENARIO_BEHAVIOR    = 'behavior';
-    public const SCENARIO_DATABASE    = 'database';
-    public const SCENARIO_ADVANCED    = 'advanced';
+    public const SCENARIO_CONNECTIONS   = 'connections';
+    public const SCENARIO_INDEXING      = 'indexing';
+    public const SCENARIO_HYBRID_SEARCH = 'hybridSearch';
+    public const SCENARIO_AI_ANSWERS    = 'aiAnswers';
+    public const SCENARIO_OPERATIONS    = 'operations';
 
     public ?string $openaiApiKey = null;
     public ?string $apiToken = null;
@@ -80,25 +81,32 @@ class Settings extends Model
      * (mass-assignment filtering) and the `on` tag on every rule below.
      */
     private const SCENARIO_ATTRIBUTES = [
-        self::SCENARIO_QUICK_START => ['openaiApiKey', 'hybridEmbeddingModel', 'ragModel', 'costBudgetDailyGlobal'],
-        self::SCENARIO_BEHAVIOR    => [
-            'minimumSimilarityThreshold', 'rrfSemanticWeight', 'rrfBm25Weight', 'rrfK',
-            'minSemanticThreshold', 'singleSignalPenalty', 'maxSemanticResults',
+        self::SCENARIO_CONNECTIONS   => [
+            'openaiApiKey',
+            'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
+            'postgresqlPassword', 'postgresqlSslMode',
+        ],
+        self::SCENARIO_INDEXING      => [
+            'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
+            'vectorsSchemaName', 'vectorsTableName',
             'embeddingCacheTtl',
+        ],
+        self::SCENARIO_HYBRID_SEARCH => [
+            'hybridEmbeddingModel',
+            'minimumSimilarityThreshold', 'rrfSemanticWeight', 'rrfBm25Weight',
+            'rrfK', 'minSemanticThreshold', 'singleSignalPenalty', 'maxSemanticResults',
+            'excerptLength',
             'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
+        ],
+        self::SCENARIO_AI_ANSWERS    => [
+            'ragEmbeddingModel', 'ragModel', 'maxPromptTokens', 'ragCustomPrompt',
+            'costBudgetDailyGlobal',
             'rateLimitRagPerMinute', 'rateLimitRagPerHour',
             'ragConcurrencyPerIp', 'ragConcurrencyGlobal',
         ],
-        self::SCENARIO_DATABASE    => [
-            'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
-            'postgresqlPassword', 'postgresqlSslMode',
-            'vectorsSchemaName', 'vectorsTableName',
-        ],
-        self::SCENARIO_ADVANCED    => [
-            'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
-            'ragEmbeddingModel', 'maxPromptTokens', 'ragCustomPrompt',
-            'apiToken', 'allowedOrigins', 'exposeStackTraces',
-            'historyRetentionDays', 'excerptLength',
+        self::SCENARIO_OPERATIONS    => [
+            'apiToken', 'allowedOrigins',
+            'historyRetentionDays', 'exposeStackTraces',
         ],
     ];
 
@@ -108,10 +116,11 @@ class Settings extends Model
     }
 
     private const TAB_TO_SCENARIO = [
-        'tab-quick-start'     => self::SCENARIO_QUICK_START,
-        'tab-behavior'        => self::SCENARIO_BEHAVIOR,
-        'tab-vector-database' => self::SCENARIO_DATABASE,
-        'tab-advanced'        => self::SCENARIO_ADVANCED,
+        'tab-connections'   => self::SCENARIO_CONNECTIONS,
+        'tab-indexing'      => self::SCENARIO_INDEXING,
+        'tab-hybrid-search' => self::SCENARIO_HYBRID_SEARCH,
+        'tab-ai-answers'    => self::SCENARIO_AI_ANSWERS,
+        'tab-operations'    => self::SCENARIO_OPERATIONS,
     ];
 
     /**
@@ -146,105 +155,106 @@ class Settings extends Model
      */
     public function rules(): array
     {
-        $quickStart = [self::SCENARIO_DEFAULT, self::SCENARIO_QUICK_START];
-        $behavior   = [self::SCENARIO_DEFAULT, self::SCENARIO_BEHAVIOR];
-        $database   = [self::SCENARIO_DEFAULT, self::SCENARIO_DATABASE];
-        $advanced   = [self::SCENARIO_DEFAULT, self::SCENARIO_ADVANCED];
+        $connections  = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS];
+        $indexing     = [self::SCENARIO_DEFAULT, self::SCENARIO_INDEXING];
+        $hybridSearch = [self::SCENARIO_DEFAULT, self::SCENARIO_HYBRID_SEARCH];
+        $aiAnswers    = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWERS];
+        $operations   = [self::SCENARIO_DEFAULT, self::SCENARIO_OPERATIONS];
 
         return [
-            // OpenAI API validation
-            [['openaiApiKey'], 'required', 'on' => $quickStart],
-            [['openaiApiKey'], 'validateEnvSecret', 'on' => $quickStart],
+            // OpenAI API key — Connections
+            [['openaiApiKey'], 'required', 'on' => $connections],
+            [['openaiApiKey'], 'validateEnvSecret', 'on' => $connections],
 
-            // API token validation
-            [['apiToken'], 'string', 'on' => $advanced],
-            [['apiToken'], 'validateOptionalEnvSecret', 'on' => $advanced],
-
-            // Embedding model validation
-            [['hybridEmbeddingModel'], 'required', 'on' => $quickStart],
-            [['hybridEmbeddingModel'], 'string', 'on' => $quickStart],
-            [['hybridEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $quickStart],
-            [['ragEmbeddingModel'], 'required', 'on' => $advanced],
-            [['ragEmbeddingModel'], 'string', 'on' => $advanced],
-            [['ragEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $advanced],
-
-            // PostgreSQL validation
-            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlPassword', 'postgresqlPort', 'postgresqlSslMode'], 'required', 'on' => $database],
-            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode'], 'string', 'on' => $database],
+            // PostgreSQL connection — Connections
+            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlPassword', 'postgresqlPort', 'postgresqlSslMode'], 'required', 'on' => $connections],
+            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode'], 'string', 'on' => $connections],
             [['postgresqlPort'], function ($attribute) {
                 $value = $this->$attribute;
                 if (!is_string($value) && !is_int($value)) {
                     $this->addError($attribute, 'Port must be a string or integer.');
                 }
-            }, 'on' => $database],
-            [['postgresqlPassword'], 'string', 'on' => $database],
-            [['postgresqlPassword'], 'validateEnvSecret', 'on' => $database],
+            }, 'on' => $connections],
+            [['postgresqlPassword'], 'string', 'on' => $connections],
+            [['postgresqlPassword'], 'validateEnvSecret', 'on' => $connections],
             [['postgresqlPort'], 'default', 'value' => 5432],
-            [['postgresqlSslMode'], 'required', 'on' => $database],
-            [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], 'on' => $database],
+            [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], 'on' => $connections],
 
-            // Vectors table identifier validation
-            [['vectorsTableName', 'vectorsSchemaName'], 'required', 'on' => $database],
+            // Vector storage identifiers — Indexing
+            [['vectorsTableName', 'vectorsSchemaName'], 'required', 'on' => $indexing],
             [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
-                'on' => $database],
+                'on' => $indexing],
 
-            // Hybrid search validation
-            [['minimumSimilarityThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $behavior],
-            [['minimumSimilarityThreshold'], 'default', 'value' => 0.90],
-            [['rrfK'], 'integer', 'min' => 1, 'max' => 1000, 'on' => $behavior],
-            [['rrfK'], 'default', 'value' => 60],
-            [['rrfSemanticWeight', 'rrfBm25Weight'], 'number', 'min' => 0, 'max' => 1, 'on' => $behavior],
-            [['rrfSemanticWeight'], 'default', 'value' => 0.3],
-            [['rrfBm25Weight'], 'default', 'value' => 0.7],
-
-            // RAG Search validation
-            [['ragModel'], 'required', 'on' => $quickStart],
-            [['ragModel'], 'string', 'on' => $quickStart],
-            [['ragModel'], 'in', 'range' => ['gpt-5.4-nano'], 'on' => $quickStart],
-            [['ragCustomPrompt'], 'string', 'on' => $advanced],
-            [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000, 'on' => $advanced],
-            [['maxPromptTokens'], 'default', 'value' => 6000],
-
-            // Content Chunking validation
-            [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500, 'on' => $advanced],
+            // Content chunking — Indexing
+            [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500, 'on' => $indexing],
             [['minChunkTokens'], 'default', 'value' => 100],
-            [['targetChunkTokens'], 'integer', 'min' => 100, 'max' => 1000, 'on' => $advanced],
+            [['targetChunkTokens'], 'integer', 'min' => 100, 'max' => 1000, 'on' => $indexing],
             [['targetChunkTokens'], 'default', 'value' => 400],
-            [['maxChunkTokens'], 'integer', 'min' => 200, 'max' => 2000, 'on' => $advanced],
+            [['maxChunkTokens'], 'integer', 'min' => 200, 'max' => 2000, 'on' => $indexing],
             [['maxChunkTokens'], 'default', 'value' => 600],
-            [['overlapTokens'], 'integer', 'min' => 0, 'max' => 200, 'on' => $advanced],
+            [['overlapTokens'], 'integer', 'min' => 0, 'max' => 200, 'on' => $indexing],
             [['overlapTokens'], 'default', 'value' => 40],
-            [['chunkThresholdTokens'], 'integer', 'min' => 100, 'max' => 1000, 'on' => $advanced],
+            [['chunkThresholdTokens'], 'integer', 'min' => 100, 'max' => 1000, 'on' => $indexing],
             [['chunkThresholdTokens'], 'default', 'value' => 500],
 
-            // Cache validation
-            [['embeddingCacheTtl'], 'integer', 'min' => 0, 'max' => 2592000, 'on' => $behavior],
+            // Embedding cache TTL — Indexing
+            [['embeddingCacheTtl'], 'integer', 'min' => 0, 'max' => 2592000, 'on' => $indexing],
             [['embeddingCacheTtl'], 'default', 'value' => 604800],
 
-            // Hybrid Search Advanced validation
-            [['minSemanticThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $behavior],
+            // Hybrid Search — corpus embedding model
+            [['hybridEmbeddingModel'], 'required', 'on' => $hybridSearch],
+            [['hybridEmbeddingModel'], 'string', 'on' => $hybridSearch],
+            [['hybridEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $hybridSearch],
+
+            // Hybrid Search — ranking
+            [['minimumSimilarityThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $hybridSearch],
+            [['minimumSimilarityThreshold'], 'default', 'value' => 0.90],
+            [['rrfK'], 'integer', 'min' => 1, 'max' => 1000, 'on' => $hybridSearch],
+            [['rrfK'], 'default', 'value' => 60],
+            [['rrfSemanticWeight', 'rrfBm25Weight'], 'number', 'min' => 0, 'max' => 1, 'on' => $hybridSearch],
+            [['rrfSemanticWeight'], 'default', 'value' => 0.3],
+            [['rrfBm25Weight'], 'default', 'value' => 0.7],
+            [['minSemanticThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $hybridSearch],
             [['minSemanticThreshold'], 'default', 'value' => 0.20],
-            [['singleSignalPenalty'], 'number', 'min' => 0, 'max' => 1, 'on' => $behavior],
+            [['singleSignalPenalty'], 'number', 'min' => 0, 'max' => 1, 'on' => $hybridSearch],
             [['singleSignalPenalty'], 'default', 'value' => 0.5],
-            [['maxSemanticResults'], 'integer', 'min' => 10, 'max' => 500, 'on' => $behavior],
+            [['maxSemanticResults'], 'integer', 'min' => 10, 'max' => 500, 'on' => $hybridSearch],
             [['maxSemanticResults'], 'default', 'value' => 100],
 
-            // Display validation
-            [['excerptLength'], 'integer', 'min' => 50, 'max' => 500, 'on' => $advanced],
+            // Hybrid Search — result display
+            [['excerptLength'], 'integer', 'min' => 50, 'max' => 500, 'on' => $hybridSearch],
             [['excerptLength'], 'default', 'value' => 200],
 
-            // History tracking validation
-            [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365, 'on' => $advanced],
-            [['historyRetentionDays'], 'default', 'value' => 30],
+            // Hybrid Search — rate limits
+            [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $hybridSearch],
 
-            // Security / rate-limit / budget validation
-            [['allowedOrigins'], 'string', 'on' => $advanced],
-            [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
-              'rateLimitRagPerMinute', 'rateLimitRagPerHour',
-              'ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $behavior],
-            [['costBudgetDailyGlobal'], 'number', 'min' => 0, 'on' => $quickStart],
-            [['exposeStackTraces'], 'boolean', 'on' => $advanced],
+            // AI Answers — models and prompt
+            [['ragEmbeddingModel'], 'required', 'on' => $aiAnswers],
+            [['ragEmbeddingModel'], 'string', 'on' => $aiAnswers],
+            [['ragEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $aiAnswers],
+            [['ragModel'], 'required', 'on' => $aiAnswers],
+            [['ragModel'], 'string', 'on' => $aiAnswers],
+            [['ragModel'], 'in', 'range' => ['gpt-5.4-nano'], 'on' => $aiAnswers],
+            [['ragCustomPrompt'], 'string', 'on' => $aiAnswers],
+            [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000, 'on' => $aiAnswers],
+            [['maxPromptTokens'], 'default', 'value' => 6000],
+
+            // AI Answers — budget + limits
+            [['costBudgetDailyGlobal'], 'number', 'min' => 0, 'on' => $aiAnswers],
+            [['rateLimitRagPerMinute', 'rateLimitRagPerHour',
+              'ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $aiAnswers],
+
+            // Operations — API access
+            [['apiToken'], 'string', 'on' => $operations],
+            [['apiToken'], 'validateOptionalEnvSecret', 'on' => $operations],
+            [['allowedOrigins'], 'string', 'on' => $operations],
+            [['allowedOrigins'], 'validateAllowedOrigins', 'on' => $operations],
+
+            // Operations — diagnostics
+            [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365, 'on' => $operations],
+            [['historyRetentionDays'], 'default', 'value' => 30],
+            [['exposeStackTraces'], 'boolean', 'on' => $operations],
             [['exposeStackTraces'], 'default', 'value' => false],
         ];
     }
@@ -278,6 +288,30 @@ class Settings extends Model
         }
 
         $this->validateEnvSecret($attribute);
+    }
+
+    public function validateAllowedOrigins(string $attribute): void
+    {
+        $value = $this->$attribute;
+
+        if (!is_string($value) || $value === '') {
+            return;
+        }
+
+        if (str_starts_with(trim($value), '$')) {
+            return;
+        }
+
+        foreach (explode(',', $value) as $entry) {
+            $entry = trim($entry);
+            if ($entry === '') {
+                continue;
+            }
+            if (!preg_match('#^https?://[^/\s:]+(:\d+)?$#', $entry)) {
+                $this->addError($attribute, 'Each origin must be like https://app.example.com (scheme, host, optional port; no path).');
+                return;
+            }
+        }
     }
 
     /**

@@ -1,0 +1,36 @@
+{% import '_includes/forms.twig' as forms %}
+
+<h2>Chunking</h2>
+<p class="light">Controls how content is split before embedding. Defaults work for most sites.</p>
+
+{% namespace 'settings' %}
+    {{ forms.textField({ label: 'Min chunk tokens', id: 'minChunkTokens', name: 'minChunkTokens', value: settings.minChunkTokens, type: 'number', min: '10', max: '500', required: true, errors: settings.getErrors('minChunkTokens') }) }}
+    {{ forms.textField({ label: 'Target chunk tokens', id: 'targetChunkTokens', name: 'targetChunkTokens', value: settings.targetChunkTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('targetChunkTokens') }) }}
+    {{ forms.textField({ label: 'Max chunk tokens', id: 'maxChunkTokens', name: 'maxChunkTokens', value: settings.maxChunkTokens, type: 'number', min: '200', max: '2000', required: true, errors: settings.getErrors('maxChunkTokens') }) }}
+    {{ forms.textField({ label: 'Overlap tokens', id: 'overlapTokens', name: 'overlapTokens', value: settings.overlapTokens, type: 'number', min: '0', max: '200', required: true, errors: settings.getErrors('overlapTokens') }) }}
+    {{ forms.textField({ label: 'Chunking threshold', id: 'chunkThresholdTokens', name: 'chunkThresholdTokens', value: settings.chunkThresholdTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('chunkThresholdTokens') }) }}
+{% endnamespace %}
+
+<hr>
+
+<h2>Storage</h2>
+<p class="light">Where vectors are written in PostgreSQL.</p>
+
+{% namespace 'settings' %}
+    {{ forms.textField({ label: 'Vectors schema name', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, required: true, errors: settings.getErrors('vectorsSchemaName') }) }}
+    {{ forms.textField({ label: 'Vectors table name', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, errors: settings.getErrors('vectorsTableName') }) }}
+{% endnamespace %}
+
+<hr>
+
+<h2>Cache</h2>
+
+{% namespace 'settings' %}
+    {{ forms.textField({
+        label: 'Embedding cache TTL (seconds)',
+        instructions: 'Longer values reduce embedding cost; shorter values speed up content edits surfacing in search. Default 604800 (7 days).',
+        id: 'embeddingCacheTtl', name: 'embeddingCacheTtl',
+        value: settings.embeddingCacheTtl, type: 'number', min: '0', max: '2592000',
+        required: true, errors: settings.getErrors('embeddingCacheTtl'),
+    }) }}
+{% endnamespace %}

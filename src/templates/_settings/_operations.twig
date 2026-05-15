@@ -1,0 +1,52 @@
+{% import '_includes/forms.twig' as forms %}
+
+<h2>API access</h2>
+<p class="light">Controls who can call the plugin's search and AI-answer endpoints.</p>
+
+{% namespace 'settings' %}
+    {{ forms.autosuggestField({
+        label: 'API token',
+        instructions: 'Optional bearer token required on every search API request. Reference an env var.',
+        id: 'apiToken', name: 'apiToken',
+        value: settings.apiToken, suggestEnvVars: true,
+        errors: settings.getErrors('apiToken'),
+    }) }}
+{% endnamespace %}
+
+{% if settings.getApiToken() and not settings.allowedOrigins %}
+    <p class="light settings__cors-tip">
+        Heads up: headless front-ends calling from another origin will be blocked by CORS until you add their origin below.
+    </p>
+{% endif %}
+
+{% namespace 'settings' %}
+    {{ forms.autosuggestField({
+        label: 'Allowed origins',
+        instructions: 'Comma-separated additional origins for headless front-ends. Same-origin always allowed.',
+        id: 'allowedOrigins', name: 'allowedOrigins',
+        value: settings.allowedOrigins, suggestEnvVars: true,
+        placeholder: 'https://app.example.com',
+        errors: settings.getErrors('allowedOrigins'),
+    }) }}
+{% endnamespace %}
+
+<hr>
+
+<h2>Diagnostics</h2>
+
+{% namespace 'settings' %}
+    {{ forms.textField({
+        label: 'History retention (days)',
+        instructions: 'Query/results details are pruned after this many days. Token and cost statistics are kept permanently.',
+        id: 'historyRetentionDays', name: 'historyRetentionDays',
+        value: settings.historyRetentionDays, type: 'number', min: '1', max: '365',
+        required: true, errors: settings.getErrors('historyRetentionDays'),
+    }) }}
+
+    {{ forms.lightswitchField({
+        label: 'Expose stack traces in API errors',
+        instructions: 'Off by default. Keep off in production.',
+        id: 'exposeStackTraces', name: 'exposeStackTraces',
+        on: settings.exposeStackTraces, errors: settings.getErrors('exposeStackTraces'),
+    }) }}
+{% endnamespace %}

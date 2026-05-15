@@ -1,0 +1,79 @@
+{% import '_includes/forms.twig' as forms %}
+
+<h2>Behavior</h2>
+
+{% namespace 'settings' %}
+    {{ forms.selectField({
+        label: 'Query embedding model',
+        instructions: "Used to embed the user's question at query time. Can differ from the corpus embedding model in Hybrid Search without triggering a reindex.",
+        id: 'ragEmbeddingModel', name: 'ragEmbeddingModel', value: settings.ragEmbeddingModel,
+        options: [
+            { label: 'text-embedding-3-small (recommended)', value: 'text-embedding-3-small' },
+            { label: 'text-embedding-3-large', value: 'text-embedding-3-large' },
+        ],
+        required: true, errors: settings.getErrors('ragEmbeddingModel'),
+    }) }}
+
+    {{ forms.selectField({
+        label: 'Answer model',
+        instructions: 'OpenAI model that generates summaries for /api/rag-search.',
+        id: 'ragModel', name: 'ragModel',
+        value: settings.ragModel,
+        options: [{ label: 'gpt-5.4-nano', value: 'gpt-5.4-nano' }],
+        required: true, errors: settings.getErrors('ragModel'),
+    }) }}
+
+    {{ forms.textField({
+        label: 'Max prompt tokens',
+        id: 'maxPromptTokens', name: 'maxPromptTokens',
+        value: settings.maxPromptTokens, type: 'number', min: '500', max: '100000',
+        required: true, errors: settings.getErrors('maxPromptTokens'),
+    }) }}
+
+    {{ forms.textareaField({
+        label: 'Custom system prompt',
+        instructions: 'Optional instructions appended to the default system prompt.',
+        id: 'ragCustomPrompt', name: 'ragCustomPrompt', value: settings.ragCustomPrompt, rows: 5,
+        errors: settings.getErrors('ragCustomPrompt'),
+    }) }}
+{% endnamespace %}
+
+<hr>
+
+<h2>Limits</h2>
+<p class="light">When the cap is reached, RAG requests transparently fall back to hybrid search (no AI summary) so users still get results. Budget resets every 24 hours.</p>
+
+{% namespace 'settings' %}
+    {{ forms.textField({
+        label: 'Global daily cap (USD)',
+        id: 'costBudgetDailyGlobal', name: 'costBudgetDailyGlobal',
+        value: settings.costBudgetDailyGlobal, type: 'number', step: '0.01', min: '0',
+        errors: settings.getErrors('costBudgetDailyGlobal'),
+    }) }}
+    <p class="light">View current usage and spend on the <a href="{{ url('ai-search/insights') }}">Insights</a> page.</p>
+
+    {{ forms.textField({
+        label: 'AI answers per minute (per IP)',
+        id: 'rateLimitRagPerMinute', name: 'rateLimitRagPerMinute',
+        value: settings.rateLimitRagPerMinute, type: 'number', min: '1', max: '100000',
+        required: true, errors: settings.getErrors('rateLimitRagPerMinute'),
+    }) }}
+    {{ forms.textField({
+        label: 'AI answers per hour (per IP)',
+        id: 'rateLimitRagPerHour', name: 'rateLimitRagPerHour',
+        value: settings.rateLimitRagPerHour, type: 'number', min: '1', max: '100000',
+        required: true, errors: settings.getErrors('rateLimitRagPerHour'),
+    }) }}
+    {{ forms.textField({
+        label: 'Max concurrent AI answers per IP',
+        id: 'ragConcurrencyPerIp', name: 'ragConcurrencyPerIp',
+        value: settings.ragConcurrencyPerIp, type: 'number', min: '1', max: '100000',
+        required: true, errors: settings.getErrors('ragConcurrencyPerIp'),
+    }) }}
+    {{ forms.textField({
+        label: 'Max concurrent AI answers (global)',
+        id: 'ragConcurrencyGlobal', name: 'ragConcurrencyGlobal',
+        value: settings.ragConcurrencyGlobal, type: 'number', min: '1', max: '100000',
+        required: true, errors: settings.getErrors('ragConcurrencyGlobal'),
+    }) }}
+{% endnamespace %}

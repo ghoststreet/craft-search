@@ -4,316 +4,35 @@
 {% set fullPageForm = true %}
 
 {% set tabs = {
-    'tab-quick-start':     { label: 'Quick start',     url: '#tab-quick-start',     errors: settings.errorsForTab('tab-quick-start') },
-    'tab-behavior':        { label: 'Search behavior', url: '#tab-behavior',        errors: settings.errorsForTab('tab-behavior') },
-    'tab-vector-database': { label: 'Vector Database', url: '#tab-vector-database', errors: settings.errorsForTab('tab-vector-database') },
-    'tab-advanced':        { label: 'Advanced',        url: '#tab-advanced',        errors: settings.errorsForTab('tab-advanced') },
+    'tab-connections':   { label: 'Connections',   url: '#tab-connections',   class: settings.errorsForTab('tab-connections')   ? 'error' : '' },
+    'tab-indexing':      { label: 'Indexing',      url: '#tab-indexing',      class: settings.errorsForTab('tab-indexing')      ? 'error' : '' },
+    'tab-hybrid-search': { label: 'Hybrid Search', url: '#tab-hybrid-search', class: settings.errorsForTab('tab-hybrid-search') ? 'error' : '' },
+    'tab-ai-answers':    { label: 'AI Answers',    url: '#tab-ai-answers',    class: settings.errorsForTab('tab-ai-answers')    ? 'error' : '' },
+    'tab-operations':    { label: 'Operations',    url: '#tab-operations',    class: settings.errorsForTab('tab-operations')    ? 'error' : '' },
 } %}
-
-{% import '_includes/forms.twig' as forms %}
 
 {% block content %}
     {{ actionInput('ai-search/settings/save') }}
     {{ redirectInput('ai-search/settings') }}
 
-    {# ────── Quick start ────── #}
-    <div id="tab-quick-start">
-        <h2>OpenAI</h2>
-        <p class="light">Required to generate embeddings and run RAG. <a href="https://github.com/ghost-street/craft-ai-search#setup" target="_blank">Setup docs →</a></p>
-
-        {% namespace 'settings' %}
-            {{ forms.autosuggestField({
-                label: 'API key',
-                instructions: 'Reference an environment variable, e.g. <code>$OPENAI_API_KEY</code>.',
-                id: 'openaiApiKey', name: 'openaiApiKey',
-                value: settings.openaiApiKey, suggestEnvVars: true, required: true,
-                errors: settings.getErrors('openaiApiKey'),
-            }) }}
-        {% endnamespace %}
-
-        <div class="buttons settings__buttons">
-            <button type="button" class="btn" data-craftsearch-control="test-api-key">Test API key</button>
-            <span class="settings__test-result" data-craftsearch-target="test-api-key-result"></span>
-        </div>
-
-        <hr>
-
-        <h2>Models</h2>
-
-        {% namespace 'settings' %}
-            {{ forms.selectField({
-                label: 'Embedding model',
-                instructions: 'Used to convert content and queries into vectors. Changing this requires a full reindex.',
-                id: 'hybridEmbeddingModel', name: 'hybridEmbeddingModel',
-                value: settings.hybridEmbeddingModel,
-                options: [
-                    { label: 'text-embedding-3-small (recommended)', value: 'text-embedding-3-small' },
-                    { label: 'text-embedding-3-large', value: 'text-embedding-3-large' },
-                ],
-                required: true, errors: settings.getErrors('hybridEmbeddingModel'),
-            }) }}
-
-            {{ forms.selectField({
-                label: 'RAG model',
-                instructions: 'OpenAI model that generates summaries for /api/rag-search.',
-                id: 'ragModel', name: 'ragModel',
-                value: settings.ragModel,
-                options: [{ label: 'gpt-5.4-nano', value: 'gpt-5.4-nano' }],
-                required: true, errors: settings.getErrors('ragModel'),
-            }) }}
-        {% endnamespace %}
-
-        <hr>
-
-        <h2>Daily cost cap</h2>
-        <p>When the cap is reached, RAG requests transparently fall back to hybrid search (no AI summary) so users still get results. Budget resets every 24 hours.</p>
-
-        {% namespace 'settings' %}
-            {{ forms.textField({
-                label: 'Global daily cap (USD)',
-                id: 'costBudgetDailyGlobal', name: 'costBudgetDailyGlobal',
-                value: settings.costBudgetDailyGlobal, type: 'number', step: '0.01', min: '0',
-                errors: settings.getErrors('costBudgetDailyGlobal'),
-            }) }}
-        {% endnamespace %}
-
+    <div id="tab-connections">
+        {% include 'ai-search/_settings/_connections' %}
     </div>
 
-    {# ────── Search behavior ────── #}
-    <div id="tab-behavior" class="hidden">
-        <h2>Result ranking</h2>
-        <p class="light">Hybrid search combines keyword (BM25) and semantic (vector) signals. Weights should add up to 1.0.</p>
-
-        {% namespace 'settings' %}
-            {{ forms.textField({
-                label: 'Final result threshold',
-                instructions: 'Minimum combined score for a result to appear. Higher = stricter. Range 0–1.',
-                id: 'minimumSimilarityThreshold', name: 'minimumSimilarityThreshold',
-                value: settings.minimumSimilarityThreshold, type: 'number', step: '0.01', min: '0', max: '1',
-                required: true, errors: settings.getErrors('minimumSimilarityThreshold'),
-            }) }}
-
-            {{ forms.textField({
-                label: 'Semantic weight',
-                instructions: 'How much vector matches contribute to the final score.',
-                id: 'rrfSemanticWeight', name: 'rrfSemanticWeight',
-                value: settings.rrfSemanticWeight, type: 'number', step: '0.1', min: '0', max: '1',
-                required: true, errors: settings.getErrors('rrfSemanticWeight'),
-            }) }}
-
-            {{ forms.textField({
-                label: 'Keyword weight',
-                instructions: 'How much BM25 keyword matches contribute.',
-                id: 'rrfBm25Weight', name: 'rrfBm25Weight',
-                value: settings.rrfBm25Weight, type: 'number', step: '0.1', min: '0', max: '1',
-                required: true, errors: settings.getErrors('rrfBm25Weight'),
-            }) }}
-
-            <details class="settings__details">
-                <summary>Advanced ranking</summary>
-                <div class="settings__details-body">
-                    {{ forms.textField({
-                        label: 'RRF K constant',
-                        instructions: 'Reciprocal Rank Fusion smoothing parameter. Most users leave at 60.',
-                        id: 'rrfK', name: 'rrfK',
-                        value: settings.rrfK, type: 'number', min: '1', max: '1000',
-                        required: true, errors: settings.getErrors('rrfK'),
-                    }) }}
-                    {{ forms.textField({
-                        label: 'Semantic pre-filter threshold',
-                        id: 'minSemanticThreshold', name: 'minSemanticThreshold',
-                        value: settings.minSemanticThreshold, type: 'number', step: '0.1', min: '0', max: '1',
-                        required: true, errors: settings.getErrors('minSemanticThreshold'),
-                    }) }}
-                    {{ forms.textField({
-                        label: 'Single-signal penalty',
-                        instructions: 'Score reduction for results matching only one signal.',
-                        id: 'singleSignalPenalty', name: 'singleSignalPenalty',
-                        value: settings.singleSignalPenalty, type: 'number', step: '0.1', min: '0', max: '1',
-                        required: true, errors: settings.getErrors('singleSignalPenalty'),
-                    }) }}
-                    {{ forms.textField({
-                        label: 'Max semantic candidates',
-                        id: 'maxSemanticResults', name: 'maxSemanticResults',
-                        value: settings.maxSemanticResults, type: 'number', min: '10', max: '500',
-                        required: true, errors: settings.getErrors('maxSemanticResults'),
-                    }) }}
-                </div>
-            </details>
-        {% endnamespace %}
-
-        <hr>
-
-        <h2>Cache</h2>
-
-        {% namespace 'settings' %}
-            {{ forms.textField({
-                label: 'Embedding cache TTL (seconds)',
-                instructions: 'Longer values reduce embedding cost; shorter values speed up content edits surfacing in search. Default 604800 (7 days).',
-                id: 'embeddingCacheTtl', name: 'embeddingCacheTtl',
-                value: settings.embeddingCacheTtl, type: 'number', min: '0', max: '2592000',
-                required: true, errors: settings.getErrors('embeddingCacheTtl'),
-            }) }}
-        {% endnamespace %}
-
-        <hr>
-
-        <h2>Rate limits</h2>
-
-        {% namespace 'settings' %}
-            {{ forms.textField({
-                label: 'Search per minute (per IP)',
-                id: 'rateLimitSearchPerMinute', name: 'rateLimitSearchPerMinute',
-                value: settings.rateLimitSearchPerMinute, type: 'number', min: '1', max: '100000',
-                required: true, errors: settings.getErrors('rateLimitSearchPerMinute'),
-            }) }}
-            {{ forms.textField({
-                label: 'RAG per minute (per IP)',
-                id: 'rateLimitRagPerMinute', name: 'rateLimitRagPerMinute',
-                value: settings.rateLimitRagPerMinute, type: 'number', min: '1', max: '100000',
-                required: true, errors: settings.getErrors('rateLimitRagPerMinute'),
-            }) }}
-            <details class="settings__details">
-                <summary>Hourly and concurrency caps</summary>
-                <div class="settings__details-body">
-                    {{ forms.textField({ label: 'Search per hour (per IP)', id: 'rateLimitSearchPerHour', name: 'rateLimitSearchPerHour', value: settings.rateLimitSearchPerHour, type: 'number', min: '1', max: '100000', required: true, errors: settings.getErrors('rateLimitSearchPerHour') }) }}
-                    {{ forms.textField({ label: 'RAG per hour (per IP)', id: 'rateLimitRagPerHour', name: 'rateLimitRagPerHour', value: settings.rateLimitRagPerHour, type: 'number', min: '1', max: '100000', required: true, errors: settings.getErrors('rateLimitRagPerHour') }) }}
-                    {{ forms.textField({ label: 'Max concurrent RAG per IP', id: 'ragConcurrencyPerIp', name: 'ragConcurrencyPerIp', value: settings.ragConcurrencyPerIp, type: 'number', min: '1', max: '100000', required: true, errors: settings.getErrors('ragConcurrencyPerIp') }) }}
-                    {{ forms.textField({ label: 'Max concurrent RAG (global)', id: 'ragConcurrencyGlobal', name: 'ragConcurrencyGlobal', value: settings.ragConcurrencyGlobal, type: 'number', min: '1', max: '100000', required: true, errors: settings.getErrors('ragConcurrencyGlobal') }) }}
-                </div>
-            </details>
-        {% endnamespace %}
-
+    <div id="tab-indexing" class="hidden">
+        {% include 'ai-search/_settings/_indexing' %}
     </div>
 
-    {# ────── Vector Database ────── #}
-    <div id="tab-vector-database" class="hidden">
-        <h2>Database</h2>
-        <p class="light">PostgreSQL with pgvector. The plugin does not create the schema — see the <a href="https://github.com/ghost-street/craft-ai-search#database-setup-required-admin-owned" target="_blank">README</a>.</p>
-
-        {% namespace 'settings' %}
-            {{ forms.autosuggestField({ label: 'Host', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, required: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost') }) }}
-            {{ forms.autosuggestField({ label: 'Port', id: 'postgresqlPort', name: 'postgresqlPort', value: settings.postgresqlPort, suggestEnvVars: true, required: true, placeholder: '5432', errors: settings.getErrors('postgresqlPort') }) }}
-            {{ forms.autosuggestField({ label: 'Database', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase') }) }}
-            {{ forms.autosuggestField({ label: 'User', id: 'postgresqlUser', name: 'postgresqlUser', value: settings.postgresqlUser, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlUser') }) }}
-            {{ forms.autosuggestField({ label: 'Password', id: 'postgresqlPassword', name: 'postgresqlPassword', value: settings.postgresqlPassword, suggestEnvVars: true, required: true, placeholder: '$SUPABASE_DB_PASSWORD', errors: settings.getErrors('postgresqlPassword') }) }}
-            {{ forms.selectField({
-                label: 'SSL mode', id: 'postgresqlSslMode', name: 'postgresqlSslMode', value: settings.postgresqlSslMode,
-                options: [
-                    { label: 'Disable — localhost only', value: 'disable' },
-                    { label: 'Allow — localhost only', value: 'allow' },
-                    { label: 'Prefer — localhost only', value: 'prefer' },
-                    { label: 'Require (recommended)', value: 'require' },
-                    { label: 'Verify CA', value: 'verify-ca' },
-                    { label: 'Verify full', value: 'verify-full' },
-                ],
-                required: true, errors: settings.getErrors('postgresqlSslMode'),
-            }) }}
-            {{ forms.textField({ label: 'Vectors schema name', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, required: true, errors: settings.getErrors('vectorsSchemaName') }) }}
-            {{ forms.textField({ label: 'Vectors table name', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, errors: settings.getErrors('vectorsTableName') }) }}
-        {% endnamespace %}
-
-        <div class="buttons settings__db-test">
-            <button type="button" class="btn" data-craftsearch-control="test-db">Test connection</button>
-            <span class="settings__test-result" data-craftsearch-target="test-db-result"></span>
-        </div>
-
+    <div id="tab-hybrid-search" class="hidden">
+        {% include 'ai-search/_settings/_hybrid_search' %}
     </div>
 
-    {# ────── Advanced ────── #}
-    <div id="tab-advanced" class="hidden">
-        <h2>Chunking</h2>
+    <div id="tab-ai-answers" class="hidden">
+        {% include 'ai-search/_settings/_ai_answers' %}
+    </div>
 
-        {% namespace 'settings' %}
-            <details class="settings__details--tight">
-                <summary>Chunk sizing &amp; overlap</summary>
-                <div class="settings__details-body">
-                    {{ forms.textField({ label: 'Min chunk tokens', id: 'minChunkTokens', name: 'minChunkTokens', value: settings.minChunkTokens, type: 'number', min: '10', max: '500', required: true, errors: settings.getErrors('minChunkTokens') }) }}
-                    {{ forms.textField({ label: 'Target chunk tokens', id: 'targetChunkTokens', name: 'targetChunkTokens', value: settings.targetChunkTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('targetChunkTokens') }) }}
-                    {{ forms.textField({ label: 'Max chunk tokens', id: 'maxChunkTokens', name: 'maxChunkTokens', value: settings.maxChunkTokens, type: 'number', min: '200', max: '2000', required: true, errors: settings.getErrors('maxChunkTokens') }) }}
-                    {{ forms.textField({ label: 'Overlap tokens', id: 'overlapTokens', name: 'overlapTokens', value: settings.overlapTokens, type: 'number', min: '0', max: '200', required: true, errors: settings.getErrors('overlapTokens') }) }}
-                    {{ forms.textField({ label: 'Chunking threshold', id: 'chunkThresholdTokens', name: 'chunkThresholdTokens', value: settings.chunkThresholdTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('chunkThresholdTokens') }) }}
-                </div>
-            </details>
-        {% endnamespace %}
-
-        <hr>
-
-        <h2>RAG</h2>
-
-        {% namespace 'settings' %}
-            {{ forms.selectField({
-                label: 'RAG embedding model',
-                id: 'ragEmbeddingModel', name: 'ragEmbeddingModel', value: settings.ragEmbeddingModel,
-                options: [
-                    { label: 'text-embedding-3-small (recommended)', value: 'text-embedding-3-small' },
-                    { label: 'text-embedding-3-large', value: 'text-embedding-3-large' },
-                ],
-                required: true, errors: settings.getErrors('ragEmbeddingModel'),
-            }) }}
-            {{ forms.textField({
-                label: 'Max prompt tokens',
-                id: 'maxPromptTokens', name: 'maxPromptTokens',
-                value: settings.maxPromptTokens, type: 'number', min: '500', max: '100000',
-                required: true, errors: settings.getErrors('maxPromptTokens'),
-            }) }}
-            {{ forms.textareaField({
-                label: 'Custom system prompt',
-                instructions: 'Optional instructions appended to the default system prompt.',
-                id: 'ragCustomPrompt', name: 'ragCustomPrompt', value: settings.ragCustomPrompt, rows: 5,
-                errors: settings.getErrors('ragCustomPrompt'),
-            }) }}
-        {% endnamespace %}
-
-        <hr>
-
-        <h2>Security</h2>
-
-        {% namespace 'settings' %}
-            {{ forms.autosuggestField({
-                label: 'API token',
-                instructions: 'Optional bearer token required on every search API request. Reference an env var.',
-                id: 'apiToken', name: 'apiToken',
-                value: settings.apiToken, suggestEnvVars: true,
-                errors: settings.getErrors('apiToken'),
-            }) }}
-            {{ forms.autosuggestField({
-                label: 'Allowed origins',
-                instructions: 'Comma-separated additional origins for headless front-ends. Same-origin always allowed.',
-                id: 'allowedOrigins', name: 'allowedOrigins',
-                value: settings.allowedOrigins, suggestEnvVars: true,
-                placeholder: 'https://app.example.com',
-                errors: settings.getErrors('allowedOrigins'),
-            }) }}
-            {{ forms.lightswitchField({
-                label: 'Expose stack traces in API errors',
-                instructions: 'Off by default. Keep off in production.',
-                id: 'exposeStackTraces', name: 'exposeStackTraces',
-                on: settings.exposeStackTraces, errors: settings.getErrors('exposeStackTraces'),
-            }) }}
-        {% endnamespace %}
-
-        <hr>
-
-        <h2>History &amp; display</h2>
-
-        {% namespace 'settings' %}
-            {{ forms.textField({
-                label: 'History retention (days)',
-                instructions: 'Query/results details are pruned after this many days. Token and cost statistics are kept permanently.',
-                id: 'historyRetentionDays', name: 'historyRetentionDays',
-                value: settings.historyRetentionDays, type: 'number', min: '1', max: '365',
-                required: true, errors: settings.getErrors('historyRetentionDays'),
-            }) }}
-            {{ forms.textField({
-                label: 'Excerpt length',
-                instructions: 'Characters in search result previews.',
-                id: 'excerptLength', name: 'excerptLength',
-                value: settings.excerptLength, type: 'number', min: '50', max: '500',
-                required: true, errors: settings.getErrors('excerptLength'),
-            }) }}
-        {% endnamespace %}
-
+    <div id="tab-operations" class="hidden">
+        {% include 'ai-search/_settings/_operations' %}
     </div>
 {% endblock %}
 
@@ -342,5 +61,33 @@
 
     wireTest('test-db', 'test-db-result', 'ai-search/settings/test-database-connection', 'Connection failed');
     wireTest('test-api-key', 'test-api-key-result', 'ai-search/settings/test-api-key', 'API key test failed');
+
+    // Live "reindex required" warning when the hybrid embedding model is changed.
+    var hybridSelect = document.getElementById('settings-hybridEmbeddingModel');
+    var hybridWarning = DOM.find('hybrid-embedding-warning');
+    if (hybridSelect && hybridWarning) {
+        var originalHybrid = hybridSelect.value;
+        hybridSelect.addEventListener('change', function() {
+            hybridWarning.classList.toggle('hidden', hybridSelect.value === originalHybrid);
+        });
+    }
+
+    // Live sum hint under the BM25/semantic weight pair.
+    var semantic = document.getElementById('settings-rrfSemanticWeight');
+    var bm25 = document.getElementById('settings-rrfBm25Weight');
+    var sumHint = DOM.find('weight-sum-hint');
+    if (semantic && bm25 && sumHint) {
+        function refreshSum() {
+            var s = parseFloat(semantic.value) || 0;
+            var k = parseFloat(bm25.value) || 0;
+            var total = Math.round((s + k) * 100) / 100;
+            var ok = Math.abs(total - 1) < 0.001;
+            sumHint.textContent = 'Weights sum: ' + total.toFixed(2) + (ok ? ' ✓' : ' — should equal 1.00');
+            sumHint.style.color = ok ? 'green' : '#cf1124';
+        }
+        semantic.addEventListener('input', refreshSum);
+        bm25.addEventListener('input', refreshSum);
+        refreshSum();
+    }
 })();
 {% endjs %}
