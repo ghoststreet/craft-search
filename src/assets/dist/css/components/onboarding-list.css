@@ -1,0 +1,39 @@
+.onboarding-list {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.onboarding-list__item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--hairline-color, rgba(31, 41, 51, .1));
+    border-radius: 8px;
+    background: var(--white, #fff);
+}
+.onboarding-list__item > div { flex: 1; }
+.onboarding-list__item--done { opacity: .6; }
+.onboarding-list__item--done strong {
+    text-decoration: line-through;
+    color: var(--medium-text-color);
+}
+.onboarding-list__icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gray-100, #e3e5e8);
+    color: var(--medium-text-color);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.onboarding-list__item--done .onboarding-list__icon {
+    background: var(--craft-search-success);
+    color: #fff;
+}

@@ -5,15 +5,15 @@
         recommendations  iterable of { level, title, body, cta? }
 #}
 {% if recommendations|length %}
-    <div class="aisearch-card aisearch-recommend">
-        <h3>Recommendations</h3>
-        <ul style="list-style:none; padding:0; margin:0;">
+    <div class="card recommendation-list">
+        <h3 class="card__title">Recommendations</h3>
+        <ul class="recommendation-list__items">
             {% for r in recommendations %}
                 <li>
-                    <span class="lvl {{ r.level }}">{{ r.level }}</span>
+                    <span class="recommendation-list__level recommendation-list__level--{{ r.level }}">{{ r.level }}</span>
                     <strong>{{ r.title }}.</strong>
-                    <span style="color: var(--medium-text-color);">{{ r.body }}</span>
-                    {% if r.cta %}<a href="{{ r.cta.url }}" style="margin-left:6px;">{{ r.cta.label }} →</a>{% endif %}
+                    <span class="recommendation-list__body">{{ r.body }}</span>
+                    {% if r.cta %}<a class="recommendation-list__cta" href="{{ r.cta.url }}">{{ r.cta.label }} →</a>{% endif %}
                 </li>
             {% endfor %}
         </ul>

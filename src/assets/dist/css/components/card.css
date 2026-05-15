@@ -1,0 +1,30 @@
+.card {
+    background: var(--white, #fff);
+    border: 1px solid var(--hairline-color, rgba(31,41,51,.1));
+    border-radius: 6px;
+    padding: 14px 16px;
+}
+.card__title {
+    margin: 0 0 10px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--medium-text-color);
+}
+.card__title--section {
+    margin-top: 18px;
+}
+.card__empty {
+    color: var(--medium-text-color);
+    font-style: italic;
+    padding: 12px 0;
+}
+.card__cta {
+    margin-top: 10px;
+}
+.card__chart {
+    height: 180px;
+}
+.card__lede {
+    margin-top: 0;
+}

@@ -1,0 +1,22 @@
+/* Shared design tokens for the Craft Search plugin. */
+:root {
+    --craft-search-success: #29a847;
+    --craft-search-warning: #d48806;
+    --craft-search-danger: #cf1322;
+
+    --craft-search-info-bg: #e6f4ff;
+    --craft-search-info-fg: #0958d9;
+    --craft-search-warn-bg: #fffbe6;
+    --craft-search-warn-fg: #614700;
+    --craft-search-warn-border: #ffe58f;
+    --craft-search-danger-bg: #fff1f0;
+    --craft-search-danger-fg: #820014;
+    --craft-search-danger-border: #ffa39e;
+
+    --craft-search-chip-success-bg: #d8f1e0;
+    --craft-search-chip-success-fg: #1f7d3c;
+    --craft-search-chip-warn-bg: #ffe6c7;
+    --craft-search-chip-warn-fg: #8a4d00;
+    --craft-search-chip-danger-bg: #fbdcdc;
+    --craft-search-chip-danger-fg: #a3252a;
+}

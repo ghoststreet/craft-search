@@ -9,14 +9,14 @@
 {% set tabParams = { days: days, siteId: siteId } %}
 
 {% block content %}
-    <ul class="aisearch-tabs">
+    <ul class="pill-tabs">
         <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'queries' })) }}"{% if tab == 'queries' %} class="sel"{% endif %}>Top queries</a></li>
         <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'zero-results' })) }}"{% if tab == 'zero-results' %} class="sel"{% endif %}>Zero results</a></li>
         <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'trending' })) }}"{% if tab == 'trending' %} class="sel"{% endif %}>Trending</a></li>
         <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'history' })) }}"{% if tab == 'history' %} class="sel"{% endif %}>History log</a></li>
     </ul>
 
-    <form method="get" action="{{ cpUrl('ai-search/insights') }}" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;">
+    <form method="get" action="{{ cpUrl('ai-search/insights') }}" class="filter-bar">
         <input type="hidden" name="tab" value="{{ tab }}">
         {{ f.daysSelect(days, 'Time range') }}
         {{ f.sitesSelect(sites, siteId) }}
@@ -96,7 +96,7 @@
         </table>
 
         {% if currentUser.admin %}
-            <form method="post" style="margin: 8px 0 16px;" onsubmit="return confirm('Permanently delete all stored queries and result data? Token/cost statistics are preserved.');">
+            <form method="post" class="insights-index__clear-form" onsubmit="return confirm('Permanently delete all stored queries and result data? Token/cost statistics are preserved.');">
                 {{ csrfInput() }}
                 {{ actionInput('ai-search/insights/clear') }}
                 <button type="submit" class="btn"{% if detailsCount == 0 %} disabled{% endif %}>Clear history ({{ detailsCount }})</button>
@@ -114,7 +114,6 @@
             totalPages: page.pages,
             path: 'ai-search/insights',
             baseParams: { tab: 'history', days: days, siteId: siteId, type: filters.type, errorsOnly: filters.errorsOnly ? 1 : null },
-            navStyle: 'margin-top: 16px;',
         } only %}
     {% endif %}
 {% endblock %}

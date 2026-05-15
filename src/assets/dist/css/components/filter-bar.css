@@ -1,0 +1,13 @@
+.filter-bar {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.filter-bar__spacer {
+    margin-left: auto;
+}
+.filter-bar__inline-form {
+    display: inline;
+}

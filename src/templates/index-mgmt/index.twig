@@ -4,7 +4,7 @@
 {% set selectedSubnavItem = 'index' %}
 
 {% block content %}
-    <ul class="aisearch-tabs">
+    <ul class="pill-tabs">
         <li><a href="{{ cpUrl('ai-search/index', { tab: 'overview' }) }}"{% if tab == 'overview' %} class="sel"{% endif %}>Overview &amp; sync</a></li>
         <li><a href="{{ cpUrl('ai-search/index', { tab: 'entries' }) }}"{% if tab == 'entries' %} class="sel"{% endif %}>Entries</a></li>
         <li><a href="{{ cpUrl('ai-search/index', { tab: 'coverage' }) }}"{% if tab == 'coverage' %} class="sel"{% endif %}>Per-site coverage</a></li>
@@ -41,10 +41,10 @@
             </table>
         {% endif %}
 
-        <div id="reindex-progress" style="display: none; margin-top: 16px;">
+        <div class="sync-progress" data-craftsearch-target="reindex-progress" hidden>
             <div class="pane">
                 <p><strong>Syncing in progress…</strong></p>
-                <p class="light">Entries: <span id="progress-entries">0</span> | Chunks: <span id="progress-chunks">0</span> | Queue: <span id="progress-queue">0</span></p>
+                <p class="light">Entries: <span data-craftsearch-target="progress-entries">0</span> | Chunks: <span data-craftsearch-target="progress-chunks">0</span> | Queue: <span data-craftsearch-target="progress-queue">0</span></p>
             </div>
         </div>
 
@@ -58,11 +58,11 @@
             <p class="light">Complete the steps above to enable syncing.</p>
         {% endif %}
 
-        <form method="post" id="reindex-form">
+        <form method="post">
             {{ csrfInput() }}
             {{ actionInput('ai-search/index/wipe-and-reindex') }}
             <div class="buttons">
-                <button type="submit" class="btn submit" id="reindex-btn"
+                <button type="submit" class="btn submit" data-craftsearch-control="reindex-btn"
                         {% if not setup.ready %}disabled{% endif %}
                         onclick="return confirm('Sync the entire search index? Every entry will be re-indexed.')">
                     Sync entire index
@@ -125,10 +125,12 @@
 {% if tab == 'overview' and setup.ready %}
 {% js %}
 (function() {
+    var DOM = window.CraftSearch.core.DOM;
+
     function startPolling() {
-        var progress = document.getElementById('reindex-progress');
-        var btn = document.getElementById('reindex-btn');
-        if (progress) progress.style.display = 'block';
+        var progress = DOM.find('reindex-progress');
+        var btn = DOM.findControl('reindex-btn');
+        if (progress) progress.hidden = false;
         if (btn) btn.disabled = true;
 
         var peakEntries = 0, peakChunks = 0;
@@ -136,11 +138,11 @@
             Craft.sendActionRequest('POST', 'ai-search/index/get-stats').then(function(response) {
                 var data = response.data;
                 if (!data.success) return;
-                var entries = document.getElementById('progress-entries');
-                var chunks = document.getElementById('progress-chunks');
-                var queue = document.getElementById('progress-queue');
-                var statEntries = document.getElementById('stat-entries');
-                var statChunks = document.getElementById('stat-chunks');
+                var entries = DOM.find('progress-entries');
+                var chunks = DOM.find('progress-chunks');
+                var queue = DOM.find('progress-queue');
+                var statEntries = DOM.find('stat-entries');
+                var statChunks = DOM.find('stat-chunks');
                 if (data.queueRemaining === 0) {
                     clearInterval(interval);
                     if (entries) entries.textContent = data.entryCount.toLocaleString();

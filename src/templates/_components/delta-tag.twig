@@ -7,12 +7,12 @@
 #}
 {% macro deltaTag(delta) %}
     {% if delta is null %}
-        <span class="delta">—</span>
+        <span class="delta-tag">—</span>
     {% elseif delta > 0 %}
-        <span class="delta up">▲ {{ delta }}%</span>
+        <span class="delta-tag delta-tag--up">▲ {{ delta }}%</span>
     {% elseif delta < 0 %}
-        <span class="delta down">▼ {{ (-delta) }}%</span>
+        <span class="delta-tag delta-tag--down">▼ {{ (-delta) }}%</span>
     {% else %}
-        <span class="delta">±0%</span>
+        <span class="delta-tag">±0%</span>
     {% endif %}
 {% endmacro %}

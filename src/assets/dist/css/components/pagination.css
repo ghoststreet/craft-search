@@ -1,0 +1,20 @@
+.pagination {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.pagination__label {
+    color: var(--medium-text-color);
+    font-size: 12px;
+}
+
+.pagination-nav {
+    margin-top: 16px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.pagination-nav__label {
+    margin: 0 8px;
+}

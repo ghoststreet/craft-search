@@ -23,11 +23,11 @@
 {% set coverageTotal = coverageTotals.indexed + coverageTotals.stale + coverageTotals.notIndexed %}
 {% set coveragePct = coverageTotal > 0 ? (coverageTotals.indexed / coverageTotal * 100)|round : 0 %}
 
-{% set budgetClass = budget.ratio >= 0.9 ? 'crit' : (budget.ratio >= 0.75 ? 'warn' : '') %}
+{% set budgetClass = budget.ratio >= 0.9 ? 'budget-bar--crit' : (budget.ratio >= 0.75 ? 'budget-bar--warn' : '') %}
 {% set budgetPct = (budget.ratio * 100)|round %}
 
 {% block content %}
-<div class="aisearch-dash">
+<div class="dashboard">
 
     {% if not setupComplete %}
         {% include 'ai-search/_dashboard/_onboarding' with { settings: settings, stats: stats } only %}
@@ -38,7 +38,7 @@
         {% set criticals = recommendations|filter(r => r.level == 'crit') %}
         {% if criticals|length %}
             {% set top = criticals|first %}
-            <div class="aisearch-alert">
+            <div class="alert">
                 <strong>{{ top.title }}.</strong> {{ top.body }}
                 {% if top.cta %} <a href="{{ top.cta.url }}">{{ top.cta.label }} →</a>{% endif %}
             </div>

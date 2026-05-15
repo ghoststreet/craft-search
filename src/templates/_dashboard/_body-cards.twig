@@ -9,11 +9,11 @@
         coverageTotal  int
         recentErrors   iterable
 #}
-<div class="aisearch-two-col">
-    <div class="aisearch-card">
-        <h3>Top queries (7d)</h3>
+<div class="dashboard__cols">
+    <div class="card">
+        <h3 class="card__title">Top queries (7d)</h3>
         {% if topQueries|length %}
-            <table class="aisearch-mini-table">
+            <table class="mini-table">
                 {% for q in topQueries %}
                     <tr>
                         <td>{{ q.query }}</td>
@@ -21,14 +21,14 @@
                     </tr>
                 {% endfor %}
             </table>
-            <p style="margin-top:10px;"><a class="go" href="{{ cpUrl('ai-search/insights') }}">View all queries</a></p>
+            <p class="card__cta"><a class="go" href="{{ cpUrl('ai-search/insights') }}">View all queries</a></p>
         {% else %}
-            <p class="empty">No search activity in the last 7 days.</p>
+            <p class="card__empty">No search activity in the last 7 days.</p>
         {% endif %}
 
-        <h3 style="margin-top:18px;">Zero-result queries (7d)</h3>
+        <h3 class="card__title card__title--section">Zero-result queries (7d)</h3>
         {% if zeroResults|length %}
-            <table class="aisearch-mini-table">
+            <table class="mini-table">
                 {% for q in zeroResults %}
                     <tr>
                         <td>{{ q.query }}</td>
@@ -37,23 +37,23 @@
                 {% endfor %}
             </table>
         {% else %}
-            <p class="empty">No zero-result queries — nice.</p>
+            <p class="card__empty">No zero-result queries — nice.</p>
         {% endif %}
     </div>
 
-    <div class="aisearch-card">
-        <h3>Coverage by site</h3>
+    <div class="card">
+        <h3 class="card__title">Coverage by site</h3>
         {% if coverage|length and coverageTotal > 0 %}
-            <div style="height: 180px;">
+            <div class="card__chart">
                 <canvas data-craftsearch-chart="stacked-bar" data-craftsearch-series="{{ coverage|json_encode|e('html_attr') }}"></canvas>
             </div>
         {% else %}
-            <p class="empty">No entries indexed yet.</p>
+            <p class="card__empty">No entries indexed yet.</p>
         {% endif %}
 
-        <h3 style="margin-top:18px;">Recent errors</h3>
+        <h3 class="card__title card__title--section">Recent errors</h3>
         {% if recentErrors|length %}
-            <table class="aisearch-mini-table">
+            <table class="mini-table">
                 {% for e in recentErrors %}
                     <tr>
                         <td>
@@ -64,7 +64,7 @@
                 {% endfor %}
             </table>
         {% else %}
-            <p class="empty">No errors recorded.</p>
+            <p class="card__empty">No errors recorded.</p>
         {% endif %}
     </div>
 </div>

@@ -30,9 +30,9 @@
             }) }}
         {% endnamespace %}
 
-        <div class="buttons" style="margin-bottom: 16px;">
-            <button type="button" class="btn" id="test-api-key-btn">Test API key</button>
-            <span id="test-api-key-result" style="margin-left: 8px;"></span>
+        <div class="buttons settings__buttons">
+            <button type="button" class="btn" data-craftsearch-control="test-api-key">Test API key</button>
+            <span class="settings__test-result" data-craftsearch-target="test-api-key-result"></span>
         </div>
 
         <hr>
@@ -108,9 +108,9 @@
                 required: true, errors: settings.getErrors('rrfBm25Weight'),
             }) }}
 
-            <details style="margin: 12px 0;">
+            <details class="settings__details">
                 <summary>Advanced ranking</summary>
-                <div style="padding-top: 8px;">
+                <div class="settings__details-body">
                     {{ forms.textField({
                         label: 'RRF K constant',
                         instructions: 'Reciprocal Rank Fusion smoothing parameter. Most users leave at 60.',
@@ -172,9 +172,9 @@
                 value: settings.rateLimitRagPerMinute, type: 'number', min: '1', max: '100000',
                 required: true, errors: settings.getErrors('rateLimitRagPerMinute'),
             }) }}
-            <details style="margin: 12px 0;">
+            <details class="settings__details">
                 <summary>Hourly and concurrency caps</summary>
-                <div style="padding-top: 8px;">
+                <div class="settings__details-body">
                     {{ forms.textField({ label: 'Search per hour (per IP)', id: 'rateLimitSearchPerHour', name: 'rateLimitSearchPerHour', value: settings.rateLimitSearchPerHour, type: 'number', min: '1', max: '100000', required: true, errors: settings.getErrors('rateLimitSearchPerHour') }) }}
                     {{ forms.textField({ label: 'RAG per hour (per IP)', id: 'rateLimitRagPerHour', name: 'rateLimitRagPerHour', value: settings.rateLimitRagPerHour, type: 'number', min: '1', max: '100000', required: true, errors: settings.getErrors('rateLimitRagPerHour') }) }}
                     {{ forms.textField({ label: 'Max concurrent RAG per IP', id: 'ragConcurrencyPerIp', name: 'ragConcurrencyPerIp', value: settings.ragConcurrencyPerIp, type: 'number', min: '1', max: '100000', required: true, errors: settings.getErrors('ragConcurrencyPerIp') }) }}
@@ -223,9 +223,9 @@
             }) }}
         {% endnamespace %}
 
-        <div class="buttons" style="margin-top: 8px;">
-            <button type="button" class="btn" id="test-db-btn">Test connection</button>
-            <span id="test-db-result" style="margin-left: 8px;"></span>
+        <div class="buttons settings__db-test">
+            <button type="button" class="btn" data-craftsearch-control="test-db">Test connection</button>
+            <span class="settings__test-result" data-craftsearch-target="test-db-result"></span>
         </div>
 
         <hr>
@@ -233,9 +233,9 @@
         <h2>Chunking</h2>
 
         {% namespace 'settings' %}
-            <details style="margin: 8px 0;">
+            <details class="settings__details--tight">
                 <summary>Chunk sizing &amp; overlap</summary>
-                <div style="padding-top: 8px;">
+                <div class="settings__details-body">
                     {{ forms.textField({ label: 'Min chunk tokens', id: 'minChunkTokens', name: 'minChunkTokens', value: settings.minChunkTokens, type: 'number', min: '10', max: '500', required: true, errors: settings.getErrors('minChunkTokens') }) }}
                     {{ forms.textField({ label: 'Target chunk tokens', id: 'targetChunkTokens', name: 'targetChunkTokens', value: settings.targetChunkTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('targetChunkTokens') }) }}
                     {{ forms.textField({ label: 'Max chunk tokens', id: 'maxChunkTokens', name: 'maxChunkTokens', value: settings.maxChunkTokens, type: 'number', min: '200', max: '2000', required: true, errors: settings.getErrors('maxChunkTokens') }) }}
@@ -326,39 +326,28 @@
 
 {% js %}
 (function() {
-    var dbBtn = document.getElementById('test-db-btn');
-    if (dbBtn) {
-        dbBtn.addEventListener('click', function() {
-            var result = document.getElementById('test-db-result');
+    var DOM = window.CraftSearch.core.DOM;
+
+    function wireTest(controlName, resultName, action, failMessage) {
+        var btn = DOM.findControl(controlName);
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            var result = DOM.find(resultName);
             result.textContent = 'Testing…';
             result.style.color = '';
-            Craft.sendActionRequest('POST', 'ai-search/settings/test-database-connection')
+            Craft.sendActionRequest('POST', action)
                 .then(function(response) {
                     result.textContent = response.data.message;
                     result.style.color = response.data.success ? 'green' : 'red';
                 })
                 .catch(function(error) {
-                    result.textContent = error.response?.data?.message || 'Connection failed';
+                    result.textContent = error.response?.data?.message || failMessage;
                     result.style.color = 'red';
                 });
         });
     }
-    var apiBtn = document.getElementById('test-api-key-btn');
-    if (apiBtn) {
-        apiBtn.addEventListener('click', function() {
-            var result = document.getElementById('test-api-key-result');
-            result.textContent = 'Testing…';
-            result.style.color = '';
-            Craft.sendActionRequest('POST', 'ai-search/settings/test-api-key')
-                .then(function(response) {
-                    result.textContent = response.data.message;
-                    result.style.color = response.data.success ? 'green' : 'red';
-                })
-                .catch(function(error) {
-                    result.textContent = error.response?.data?.message || 'API key test failed';
-                    result.style.color = 'red';
-                });
-        });
-    }
+
+    wireTest('test-db', 'test-db-result', 'ai-search/settings/test-database-connection', 'Connection failed');
+    wireTest('test-api-key', 'test-api-key-result', 'ai-search/settings/test-api-key', 'API key test failed');
 })();
 {% endjs %}

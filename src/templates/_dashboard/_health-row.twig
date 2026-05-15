@@ -8,26 +8,26 @@
         budget        { cap, ratio }
         budgetPct     int
 #}
-<div class="aisearch-health-row">
-    <div class="aisearch-health-pill">
+<div class="health-row">
+    <div class="health-pill">
         <span class="status {{ settings.openaiApiKey ? 'on' : 'off' }}"></span>
         <div>
-            <div class="label">OpenAI</div>
-            <div class="sub">{{ settings.openaiApiKey ? 'Key configured' : 'No API key' }}</div>
+            <div class="health-pill__label">OpenAI</div>
+            <div class="health-pill__sub">{{ settings.openaiApiKey ? 'Key configured' : 'No API key' }}</div>
         </div>
     </div>
-    <div class="aisearch-health-pill">
+    <div class="health-pill">
         <span class="status {{ stats.isConnected ? 'on' : 'off' }}"></span>
         <div>
-            <div class="label">Database</div>
-            <div class="sub">{{ stats.isConnected ? 'Connected' : 'Disconnected' }}</div>
+            <div class="health-pill__label">Database</div>
+            <div class="health-pill__sub">{{ stats.isConnected ? 'Connected' : 'Disconnected' }}</div>
         </div>
     </div>
-    <div class="aisearch-health-pill">
+    <div class="health-pill">
         <span class="status {{ coveragePct >= 95 ? 'on' : (coveragePct >= 50 ? 'orange' : 'off') }}"></span>
         <div>
-            <div class="label">Index</div>
-            <div class="sub">
+            <div class="health-pill__label">Index</div>
+            <div class="health-pill__sub">
                 {% if stats.lastIndexed %}
                     Last sync {{ stats.lastIndexed|date('M j, g:i A') }}
                 {% else %}
@@ -36,11 +36,11 @@
             </div>
         </div>
     </div>
-    <div class="aisearch-health-pill">
+    <div class="health-pill">
         <span class="status {{ budget.cap == 0 ? 'disabled' : (budget.ratio >= 0.9 ? 'off' : (budget.ratio >= 0.75 ? 'orange' : 'on')) }}"></span>
         <div>
-            <div class="label">Budget</div>
-            <div class="sub">
+            <div class="health-pill__label">Budget</div>
+            <div class="health-pill__sub">
                 {% if budget.cap > 0 %}
                     {{ budgetPct }}% of daily cap
                 {% else %}

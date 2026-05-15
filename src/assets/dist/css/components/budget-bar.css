@@ -1,0 +1,15 @@
+.budget-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--gray-200, #cdd8e4);
+    overflow: hidden;
+    margin-top: 6px;
+}
+.budget-bar__fill {
+    display: block;
+    height: 100%;
+    background: var(--craft-search-success);
+    transition: width .3s;
+}
+.budget-bar--warn .budget-bar__fill { background: var(--craft-search-warning); }
+.budget-bar--crit .budget-bar__fill { background: var(--craft-search-danger); }

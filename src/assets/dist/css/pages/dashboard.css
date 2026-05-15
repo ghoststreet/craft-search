@@ -1,0 +1,13 @@
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.dashboard__cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+@media (max-width: 900px) {
+    .dashboard__cols { grid-template-columns: 1fr; }
+}

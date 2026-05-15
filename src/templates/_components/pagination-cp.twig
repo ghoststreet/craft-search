@@ -7,6 +7,7 @@
         totalPages   int    total number of pages
         path         string cpUrl path (e.g. 'ai-search/history')
         baseParams   object query params to preserve across pages
+        navClass     string optional extra class on the <nav>
 
     Usage:
         {% include 'ai-search/_components/pagination-cp' with {
@@ -15,11 +16,10 @@
             baseParams: { type: typeFilter, days: daysFilter, ... }
         } only %}
 #}
-{% set navStyle = navStyle ?? 'margin-top: 16px; display: flex; gap: 4px; align-items: center;' %}
 {% if totalPages > 1 %}
-    <nav style="{{ navStyle }}">
+    <nav class="pagination-nav{% if navClass ?? false %} {{ navClass }}{% endif %}">
         {% if currentPage > 1 %}<a class="btn" href="{{ cpUrl(path, baseParams|merge({ page: currentPage - 1 })) }}">‹ Prev</a>{% endif %}
-        <span class="light" style="margin: 0 8px;">Page {{ currentPage }} of {{ totalPages }}</span>
+        <span class="light pagination-nav__label">Page {{ currentPage }} of {{ totalPages }}</span>
         {% if currentPage < totalPages %}<a class="btn" href="{{ cpUrl(path, baseParams|merge({ page: currentPage + 1 })) }}">Next ›</a>{% endif %}
     </nav>
 {% endif %}

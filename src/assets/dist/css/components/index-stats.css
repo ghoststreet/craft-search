@@ -1,0 +1,25 @@
+.index-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin: 0 0 18px;
+    padding: 12px 16px;
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--medium-border-radius, 5px);
+    background: var(--gray-050, transparent);
+}
+.index-stats__item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.index-stats__count {
+    font-weight: 600;
+    font-size: 14px;
+}
+.index-stats__label {
+    color: var(--medium-text-color);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}

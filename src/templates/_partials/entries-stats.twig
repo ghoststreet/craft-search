@@ -7,24 +7,24 @@
         labels  object  { total, indexed, stale, notIndexed }
 #}
 {% set labels = labels ?? { total: 'Total', indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed' } %}
-<div class="ai-search-stats">
-    <div class="meta-item">
-        <span class="count">{{ counts.total }}</span>
-        <span class="label">{{ labels.total }}</span>
+<div class="index-stats">
+    <div class="index-stats__item">
+        <span class="index-stats__count">{{ counts.total }}</span>
+        <span class="index-stats__label">{{ labels.total }}</span>
     </div>
-    <div class="meta-item">
+    <div class="index-stats__item">
         <span class="status green"></span>
-        <span class="count">{{ counts.indexed }}</span>
-        <span class="label">{{ labels.indexed }}</span>
+        <span class="index-stats__count">{{ counts.indexed }}</span>
+        <span class="index-stats__label">{{ labels.indexed }}</span>
     </div>
-    <div class="meta-item">
+    <div class="index-stats__item">
         <span class="status orange"></span>
-        <span class="count">{{ counts.stale }}</span>
-        <span class="label">{{ labels.stale }}</span>
+        <span class="index-stats__count">{{ counts.stale }}</span>
+        <span class="index-stats__label">{{ labels.stale }}</span>
     </div>
-    <div class="meta-item">
+    <div class="index-stats__item">
         <span class="status off"></span>
-        <span class="count">{{ counts['not-indexed'] }}</span>
-        <span class="label">{{ labels.notIndexed }}</span>
+        <span class="index-stats__count">{{ counts['not-indexed'] }}</span>
+        <span class="index-stats__label">{{ labels.notIndexed }}</span>
     </div>
 </div>

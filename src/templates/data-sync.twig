@@ -92,10 +92,10 @@
         </table>
     {% endif %}
 
-    <div id="reindex-progress" style="display: none; margin-top: 16px;">
+    <div class="sync-progress" data-craftsearch-target="reindex-progress" hidden>
         <div class="pane">
             <p><strong>Syncing in progress...</strong></p>
-            <p class="light">Entries indexed: <span id="progress-entries">0</span> | Chunks: <span id="progress-chunks">0</span> | Queue remaining: <span id="progress-queue">0</span></p>
+            <p class="light">Entries indexed: <span data-craftsearch-target="progress-entries">0</span> | Chunks: <span data-craftsearch-target="progress-chunks">0</span> | Queue remaining: <span data-craftsearch-target="progress-queue">0</span></p>
         </div>
     </div>
 
@@ -110,14 +110,14 @@
         <p class="light">Complete the steps above to enable syncing.</p>
     {% endif %}
 
-    <form method="post" id="reindex-form">
+    <form method="post">
         {{ csrfInput() }}
         {{ actionInput('ai-search/data-sync/wipe-and-reindex') }}
 
         <div class="buttons">
             <button type="submit"
                     class="btn submit"
-                    id="reindex-btn"
+                    data-craftsearch-control="reindex-btn"
                     {% if not setup.ready %}disabled title="Complete the setup steps above before syncing"{% endif %}
                     onclick="return confirm('Are you sure you want to sync the entire search index? Every entry will be re-indexed.')">
                 Sync Entire Index
@@ -129,10 +129,12 @@
 {% if setup.ready %}
 {% js %}
 (function() {
+    var DOM = window.CraftSearch.core.DOM;
+
     function startPolling() {
-        var progress = document.getElementById('reindex-progress');
-        var btn = document.getElementById('reindex-btn');
-        if (progress) progress.style.display = 'block';
+        var progress = DOM.find('reindex-progress');
+        var btn = DOM.findControl('reindex-btn');
+        if (progress) progress.hidden = false;
         if (btn) btn.disabled = true;
 
         var peakEntries = 0;
@@ -144,20 +146,18 @@
                     var data = response.data;
                     if (!data.success) return;
 
-                    var entries = document.getElementById('progress-entries');
-                    var chunks = document.getElementById('progress-chunks');
-                    var queue = document.getElementById('progress-queue');
-                    var statEntries = document.getElementById('stat-entries');
-                    var statChunks = document.getElementById('stat-chunks');
+                    var entries = DOM.find('progress-entries');
+                    var chunks = DOM.find('progress-chunks');
+                    var queue = DOM.find('progress-queue');
+                    var statEntries = DOM.find('stat-entries');
+                    var statChunks = DOM.find('stat-chunks');
 
                     if (data.queueRemaining === 0) {
-                        // Show final actual counts on completion
                         clearInterval(interval);
                         if (entries) entries.textContent = data.entryCount.toLocaleString();
                         if (chunks) chunks.textContent = data.chunkCount.toLocaleString();
                         if (statEntries) statEntries.textContent = data.entryCount.toLocaleString();
                         if (statChunks) statChunks.textContent = data.chunkCount.toLocaleString();
-                        var progress = document.getElementById('reindex-progress');
                         if (progress) {
                             progress.innerHTML = '<div class="pane"><p><strong>Sync complete.</strong></p></div>';
                         }
@@ -165,7 +165,6 @@
                         return;
                     }
 
-                    // Only show increasing counts to avoid flickering from delete-then-reinsert
                     peakEntries = Math.max(peakEntries, data.entryCount);
                     peakChunks = Math.max(peakChunks, data.chunkCount);
 

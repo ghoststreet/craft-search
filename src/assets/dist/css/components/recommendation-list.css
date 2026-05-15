@@ -1,0 +1,29 @@
+.recommendation-list__items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.recommendation-list__items li { margin: 6px 0; }
+.recommendation-list__level {
+    display: inline-block;
+    font-size: 10px;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: 1px;
+}
+.recommendation-list__level--info {
+    background: var(--craft-search-info-bg);
+    color: var(--craft-search-info-fg);
+}
+.recommendation-list__level--warn {
+    background: var(--craft-search-warn-bg);
+    color: var(--craft-search-warn-fg);
+}
+.recommendation-list__level--crit {
+    background: var(--craft-search-danger-bg);
+    color: var(--craft-search-danger-fg);
+}
+.recommendation-list__body { color: var(--medium-text-color); }
+.recommendation-list__cta { margin-left: 6px; }

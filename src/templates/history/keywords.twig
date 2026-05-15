@@ -8,17 +8,17 @@
 {% set siteFilter = filters.siteId %}
 
 {% block content %}
-    <form method="get" action="{{ cpUrl('ai-search/history/keywords') }}" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;">
+    <form method="get" action="{{ cpUrl('ai-search/history/keywords') }}" class="filter-bar">
         {{ f.daysSelect(daysFilter) }}
         {{ f.sitesSelect(keywords.sites, siteFilter) }}
         {{ f.submitButton() }}
     </form>
 
-    <p class="light" style="margin-bottom: 16px;">
+    <p class="light history-keywords__lede">
         Keyword analytics are computed from stored search queries. Data is bounded by the plugin's <code>historyRetentionDays</code> setting.
     </p>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+    <div class="history-keywords__grid">
         <div>
             <h2>Top keywords{% if daysFilter %} (last {{ daysFilter }} days){% endif %}</h2>
             <table class="data fullwidth">

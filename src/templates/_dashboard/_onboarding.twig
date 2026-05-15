@@ -11,14 +11,14 @@
     { done: stats.isConnected and stats.entryCount > 0, label: 'Run your first index', hint: 'Generates vectors for every published entry.', cta: 'ai-search/index' },
 ] %}
 
-<div class="aisearch-card">
-    <h2 style="margin-top:0;">Finish setting up AI Search</h2>
-    <p class="light" style="margin-top:0;">Three steps separate you from intelligent, AI-powered search on your Craft site.</p>
+<div class="card">
+    <h2 class="card__lede">Finish setting up AI Search</h2>
+    <p class="light card__lede">Three steps separate you from intelligent, AI-powered search on your Craft site.</p>
 
-    <ol class="aisearch-onboarding">
+    <ol class="onboarding-list">
         {% for s in steps %}
-            <li class="{{ s.done ? 'done' : '' }}">
-                <span class="step-icon">
+            <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}">
+                <span class="onboarding-list__icon">
                     {% if s.done %}<span data-icon="check"></span>{% else %}{{ loop.index }}{% endif %}
                 </span>
                 <div>

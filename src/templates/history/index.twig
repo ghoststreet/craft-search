@@ -38,7 +38,7 @@
     </table>
 
     {% if stats.byType is not empty %}
-        <p class="light" style="margin-top: 8px;">
+        <p class="light history-index__by-type">
             {% for type, t in stats.byType %}
                 <strong>{{ type }}</strong>: {{ t.count }} searches · {{ t.tokens|number_format }} tokens · ${{ t.cost|number_format(6) }}{% if not loop.last %} &nbsp;·&nbsp; {% endif %}
             {% endfor %}
@@ -47,15 +47,15 @@
 
     <hr>
 
-    <form method="get" action="{{ cpUrl('ai-search/history') }}" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;">
+    <form method="get" action="{{ cpUrl('ai-search/history') }}" class="filter-bar">
         {{ f.typeSelect(typeFilter) }}
         {{ f.daysSelect(daysFilter) }}
         {{ f.sitesSelect(sites, siteFilter) }}
         {{ f.errorsOnlyCheckbox(errorsOnly) }}
         {{ f.submitButton() }}
-        <div class="field" style="margin-left: auto;">
+        <div class="field filter-bar__spacer">
             {% if currentUser.admin %}
-                <form method="post" action="" style="display: inline;" onsubmit="return confirm('This will permanently delete all stored queries and result data. Token/cost statistics will be preserved. Continue?');">
+                <form method="post" action="" class="filter-bar__inline-form" onsubmit="return confirm('This will permanently delete all stored queries and result data. Token/cost statistics will be preserved. Continue?');">
                     {{ csrfInput() }}
                     {{ actionInput('ai-search/history/clear') }}
                     <button type="submit" class="btn submit"{% if detailsCount == 0 %} disabled{% endif %}>

@@ -1,17 +1,17 @@
 {# @var chunk dict #}
 <div class="chunk-row pane">
-    <header>
-        <span class="index">#{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</span>
-        <span class="tokens">~{{ chunk.estimatedTokens }} {{ 'tokens'|t('ai-search') }}</span>
-        <span class="spacer"></span>
-        <span class="updated">{{ chunk.dateUpdated|date('M j, Y g:i A') }}</span>
+    <header class="chunk-row__header">
+        <span class="chunk-row__index">#{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</span>
+        <span class="chunk-row__tokens">~{{ chunk.estimatedTokens }} {{ 'tokens'|t('ai-search') }}</span>
+        <span class="chunk-row__spacer"></span>
+        <span class="chunk-row__updated">{{ chunk.dateUpdated|date('M j, Y g:i A') }}</span>
     </header>
     {% if chunk.content %}
-        <details>
+        <details class="chunk-row__details">
             <summary>{{ chunk.content|slice(0, 160) }}{% if chunk.content|length > 160 %}…{% endif %}</summary>
-            <pre class="chunk-content">{{ chunk.content }}</pre>
+            <pre class="chunk-row__content">{{ chunk.content }}</pre>
         </details>
     {% else %}
-        <div style="padding: 12px 14px;"><span class="light">—</span></div>
+        <div class="chunk-row__empty"><span class="light">—</span></div>
     {% endif %}
 </div>
