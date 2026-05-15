@@ -10,10 +10,24 @@
         return headers;
     }
 
+    function parse(r) {
+        return r.json().catch(function () { return {}; }).then(function (body) {
+            if (!r.ok || body.success === false) {
+                var err = new Error(body.code || 'UNKNOWN');
+                err.code = body.code || 'UNKNOWN';
+                err.requestId = body.requestId || null;
+                err.retryAfter = body.retryAfter || null;
+                err.status = r.status;
+                throw err;
+            }
+            return body;
+        });
+    }
+
     ns.core.API = {
         get: function (url) {
             return fetch(url, { method: 'GET', credentials: 'same-origin', headers: csrfHeaders() })
-                .then(function (r) { return r.json(); });
+                .then(parse);
         },
         post: function (url, body) {
             var headers = Object.assign({ 'Content-Type': 'application/json' }, csrfHeaders());
@@ -22,7 +36,7 @@
                 credentials: 'same-origin',
                 headers: headers,
                 body: JSON.stringify(body || {})
-            }).then(function (r) { return r.json(); });
+            }).then(parse);
         },
         action: function (path, body) {
             var url = ns.config.actionUrl ? ns.config.actionUrl(path) : path;

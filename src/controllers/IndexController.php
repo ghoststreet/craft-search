@@ -4,11 +4,9 @@ namespace ghoststreet\craftaisearch\controllers;
 
 use Craft;
 use craft\elements\Entry;
-use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
-use ghoststreet\craftaisearch\helpers\ErrorPresenter;
+use ghoststreet\craftaisearch\helpers\ErrorMapper;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use yii\web\NotFoundHttpException;
@@ -18,7 +16,7 @@ use yii\web\Response;
  * Index management page: tabs for overview/sync, entries (debug), and coverage.
  * Replaces the previous Data Sync + Debug pages.
  */
-class IndexController extends Controller
+class IndexController extends BaseApiController
 {
     protected array|int|bool $allowAnonymous = false;
 
@@ -69,7 +67,7 @@ class IndexController extends Controller
                 $error = null;
             } catch (DatabaseException $e) {
                 $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 50, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
-                $error = ErrorPresenter::present($e, 'getEntryRows', ['siteId' => $filters['siteId']]);
+                $error = ErrorMapper::present($e, 'getEntryRows', ['siteId' => $filters['siteId']]);
             }
 
             $data['result'] = $result;
@@ -99,7 +97,7 @@ class IndexController extends Controller
             $error = null;
         } catch (DatabaseException $e) {
             $inspection = null;
-            $error = ErrorPresenter::present($e, 'inspectElement', ['elementId' => $elementId, 'siteId' => $siteId]);
+            $error = ErrorMapper::present($e, 'inspectElement', ['elementId' => $elementId, 'siteId' => $siteId]);
         }
 
         if ($inspection === null && $error === null) {
@@ -150,7 +148,7 @@ class IndexController extends Controller
             );
         } catch (DatabaseException $e) {
             Craft::$app->getSession()->setError(
-                Craft::t('ai-search', 'Failed to start sync: {error}', ['error' => ErrorPresenter::present($e, 'syncReindex')])
+                Craft::t('ai-search', 'Failed to start sync: {error}', ['error' => ErrorMapper::present($e, 'syncReindex')])
             );
         }
 
@@ -173,7 +171,7 @@ class IndexController extends Controller
                 'queueRemaining' => $queueTotal,
             ]);
         } catch (\Throwable $e) {
-            return ApiResponseHelper::jsonError($this, $e, 'getStats');
+            return $this->jsonError($e, 'getStats');
         }
     }
 

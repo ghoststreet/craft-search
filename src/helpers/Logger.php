@@ -64,17 +64,13 @@ final class Logger
     }
 
     /**
-     * Log an exception with full context.
-     * Includes stack trace in devMode for easier debugging.
+     * Log an exception with full context, including stack trace (always).
      */
     public static function exception(Throwable $e, string $operation, array $context = []): void
     {
         $context['exceptionMessage'] = $e->getMessage();
         $context['exceptionClass'] = get_class($e);
-
-        if (Craft::$app->getConfig()->getGeneral()->devMode) {
-            $context['trace'] = $e->getTraceAsString();
-        }
+        $context['trace'] = $e->getTraceAsString();
 
         self::error("{$operation} failed: {$e->getMessage()}", $context);
     }

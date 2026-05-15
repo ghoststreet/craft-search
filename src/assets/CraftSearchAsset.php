@@ -20,6 +20,7 @@ class CraftSearchAsset extends AssetBundle
             'js/craft-search-base.js',
             'js/craft-search-config.js',
             'js/core/dom.js',
+            'js/core/errors.js',
             'js/core/api.js',
             'js/core/utils.js',
         ];

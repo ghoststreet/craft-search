@@ -40,7 +40,9 @@
 (function() {
     var DOM = window.CraftSearch.core.DOM;
 
-    function wireTest(controlName, resultName, action, failMessage) {
+    var errors = window.CraftSearch.core.errors;
+
+    function wireTest(controlName, resultName, action, successMessage) {
         var btn = DOM.findControl(controlName);
         if (!btn) return;
         btn.addEventListener('click', function() {
@@ -49,18 +51,25 @@
             result.style.color = '';
             Craft.sendActionRequest('POST', action)
                 .then(function(response) {
-                    result.textContent = response.data.message;
-                    result.style.color = response.data.success ? 'green' : 'red';
+                    var data = response.data || {};
+                    if (data.success) {
+                        result.textContent = successMessage;
+                        result.style.color = 'green';
+                    } else {
+                        result.textContent = errors.messageFor(data);
+                        result.style.color = 'red';
+                    }
                 })
                 .catch(function(error) {
-                    result.textContent = error.response?.data?.message || failMessage;
+                    var body = (error && error.response && error.response.data) || {};
+                    result.textContent = errors.messageFor(body);
                     result.style.color = 'red';
                 });
         });
     }
 
-    wireTest('test-db', 'test-db-result', 'ai-search/settings/test-database-connection', 'Connection failed');
-    wireTest('test-api-key', 'test-api-key-result', 'ai-search/settings/test-api-key', 'API key test failed');
+    wireTest('test-db', 'test-db-result', 'ai-search/settings/test-database-connection', 'Connected successfully.');
+    wireTest('test-api-key', 'test-api-key-result', 'ai-search/settings/test-api-key', 'API key is valid.');
 
     // Live "reindex required" warning when the hybrid embedding model is changed.
     var hybridSelect = document.getElementById('settings-hybridEmbeddingModel');

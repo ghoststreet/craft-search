@@ -74,8 +74,6 @@ class Settings extends Model
 
     public float $costBudgetDailyGlobal = 20.0;
 
-    public bool $exposeStackTraces = false;
-
     /**
      * Maps each CP settings tab to the attributes it owns. Drives both `scenarios()`
      * (mass-assignment filtering) and the `on` tag on every rule below.
@@ -106,7 +104,7 @@ class Settings extends Model
         ],
         self::SCENARIO_OPERATIONS    => [
             'apiToken', 'allowedOrigins',
-            'historyRetentionDays', 'exposeStackTraces',
+            'historyRetentionDays',
         ],
     ];
 
@@ -254,8 +252,6 @@ class Settings extends Model
             // Operations — diagnostics
             [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365, 'on' => $operations],
             [['historyRetentionDays'], 'default', 'value' => 30],
-            [['exposeStackTraces'], 'boolean', 'on' => $operations],
-            [['exposeStackTraces'], 'default', 'value' => false],
         ];
     }
 

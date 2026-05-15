@@ -4,11 +4,9 @@ namespace ghoststreet\craftaisearch\controllers;
 
 use Craft;
 use craft\elements\Entry;
-use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
-use ghoststreet\craftaisearch\helpers\ErrorPresenter;
+use ghoststreet\craftaisearch\helpers\ErrorMapper;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use yii\web\Response;
@@ -16,7 +14,7 @@ use yii\web\Response;
 /**
  * Data Sync controller for content indexing management
  */
-class DataSyncController extends Controller
+class DataSyncController extends BaseApiController
 {
     protected array|int|bool $allowAnonymous = false;
 
@@ -105,7 +103,7 @@ class DataSyncController extends Controller
         } catch (DatabaseException $e) {
             Craft::$app->getSession()->setError(
                 Craft::t('ai-search', 'Failed to start sync: {error}', [
-                    'error' => ErrorPresenter::present($e, 'syncReindex'),
+                    'error' => ErrorMapper::present($e, 'syncReindex'),
                 ])
             );
         }
@@ -132,7 +130,7 @@ class DataSyncController extends Controller
                 'queueRemaining' => $queueTotal,
             ]);
         } catch (\Throwable $e) {
-            return ApiResponseHelper::jsonError($this, $e, 'getStats');
+            return $this->jsonError($e, 'getStats');
         }
     }
 }

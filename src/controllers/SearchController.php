@@ -4,10 +4,11 @@ namespace ghoststreet\craftaisearch\controllers;
 
 use Craft;
 use craft\elements\Entry;
-use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftaisearch\exceptions\ErrorCode;
 use ghoststreet\craftaisearch\exceptions\RateLimitException;
 use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
+use ghoststreet\craftaisearch\helpers\ErrorMapper;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\PricingTable;
 use ghoststreet\craftaisearch\helpers\RequestParameterExtractor;
@@ -29,16 +30,13 @@ use yii\web\UnauthorizedHttpException;
  * host (plus the `allowedOrigins` setting). Per-IP rate limits, RAG
  * concurrency caps, and daily cost budgets are enforced by RateLimitService.
  */
-class SearchController extends Controller
+class SearchController extends BaseApiController
 {
     public $defaultAction = 'semantic-search';
 
     protected array|int|bool $allowAnonymous = self::ALLOW_ANONYMOUS_LIVE;
 
     public $enableCsrfValidation = true;
-
-    /** Short hex id tagging every log line and JSON response for this request. */
-    private string $requestId = '';
 
     /** Monotonic start time for total-request timing. */
     private float $startTime = 0.0;
@@ -56,7 +54,6 @@ class SearchController extends Controller
             return false;
         }
 
-        $this->requestId = bin2hex(random_bytes(4));
         $this->startTime = microtime(true);
         UsageTracker::reset();
 
@@ -194,13 +191,7 @@ class SearchController extends Controller
         $response = Craft::$app->getResponse();
         $response->getHeaders()->set('Retry-After', (string)$e->retryAfterSeconds);
         $response->format = Response::FORMAT_JSON;
-        $response->data = [
-            'success' => false,
-            'error' => $e->userMessage(),
-            'reason' => $e->reason,
-            'retryAfter' => $e->retryAfterSeconds,
-            'requestId' => $this->requestId,
-        ];
+        $response->data = ApiResponseHelper::error($e, 'rateLimit', ['requestId' => $this->requestId]);
         $response->setStatusCode($e->httpStatus());
     }
 
@@ -425,8 +416,13 @@ class SearchController extends Controller
             }
         } catch (Throwable $e) {
             $errorMessage = $e->getMessage();
-            Logger::exception($e, 'ragStream', $this->errorContext($params));
-            $this->emitSse('error', ['message' => $errorMessage, 'requestId' => $this->requestId]);
+            $code = ErrorMapper::codeFor($e);
+            Logger::exception($e, 'ragStream', $this->errorContext($params) + ['code' => $code->value]);
+            $payload = ['code' => $code->value, 'requestId' => $this->requestId];
+            if ($e instanceof RateLimitException) {
+                $payload['retryAfter'] = $e->retryAfterSeconds;
+            }
+            $this->emitSse('error', $payload);
         }
 
         $this->recordHistory('rag', $params, [
@@ -510,8 +506,9 @@ class SearchController extends Controller
             $this->emitSse('done', ['requestId' => $this->requestId]);
         } catch (Throwable $e) {
             $errorMessage = $e->getMessage();
-            Logger::exception($e, 'ragStreamFallback', $this->errorContext($params));
-            $this->emitSse('error', ['message' => $errorMessage, 'requestId' => $this->requestId]);
+            $code = ErrorMapper::codeFor($e);
+            Logger::exception($e, 'ragStreamFallback', $this->errorContext($params) + ['code' => $code->value]);
+            $this->emitSse('error', ['code' => $code->value, 'requestId' => $this->requestId]);
         }
 
         $this->recordHistory('rag', $params, [
@@ -633,12 +630,11 @@ class SearchController extends Controller
         }
     }
 
-    private function errorContext(array $params): array
+    protected function errorContext(array $extra = []): array
     {
-        return [
-            'requestId' => $this->requestId,
-            'q' => mb_substr($params['query'] ?? '', 0, 100),
-            'siteId' => $params['siteId'] ?? null,
-        ];
+        return parent::errorContext([
+            'q' => mb_substr($extra['query'] ?? '', 0, 100),
+            'siteId' => $extra['siteId'] ?? null,
+        ]);
     }
 }

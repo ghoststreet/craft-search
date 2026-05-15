@@ -3,15 +3,12 @@
 namespace ghoststreet\craftaisearch\controllers;
 
 use Craft;
-use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\helpers\ErrorPresenter;
+use ghoststreet\craftaisearch\exceptions\ErrorCode;
+use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
 use yii\web\Response;
 
-/**
- * Settings controller for plugin settings management
- */
-class SettingsController extends Controller
+class SettingsController extends BaseApiController
 {
     protected array|int|bool $allowAnonymous = false;
 
@@ -52,9 +49,6 @@ class SettingsController extends Controller
         );
     }
 
-    /**
-     * Test the PostgreSQL database connection.
-     */
     public function actionTestDatabaseConnection(): Response
     {
         $this->requireAdmin();
@@ -65,23 +59,19 @@ class SettingsController extends Controller
             $db->getConnection();
 
             if (!$db->isSchemaInitialized()) {
-                $settings = AiSearch::getInstance()->getSettings();
-                $table = $settings->getQualifiedVectorsTable();
                 return $this->asJson([
                     'success' => false,
-                    'message' => "Connected, but the vector table {$table} does not exist. Run the pgvector schema setup — see the README.",
+                    'code' => ErrorCode::DATABASE_TABLE_MISSING->value,
+                    'requestId' => $this->requestId,
                 ]);
             }
 
-            return $this->asJson(['success' => true, 'message' => 'Connected successfully.']);
+            return $this->asJson(['success' => true, 'requestId' => $this->requestId]);
         } catch (\Throwable $e) {
-            return $this->asJson(['success' => false, 'message' => ErrorPresenter::present($e, 'testDatabaseConnection')]);
+            return ApiResponseHelper::jsonError($this, $e, 'testDatabaseConnection', $this->errorContext());
         }
     }
 
-    /**
-     * Test the OpenAI API key by making a lightweight API call.
-     */
     public function actionTestApiKey(): Response
     {
         $this->requireAdmin();
@@ -90,9 +80,9 @@ class SettingsController extends Controller
         try {
             $client = AiSearch::getInstance()->openAIClientFactory->getClient();
             $client->models()->list();
-            return $this->asJson(['success' => true, 'message' => 'API key is valid.']);
+            return $this->asJson(['success' => true, 'requestId' => $this->requestId]);
         } catch (\Throwable $e) {
-            return $this->asJson(['success' => false, 'message' => ErrorPresenter::present($e, 'testApiKey')]);
+            return ApiResponseHelper::jsonError($this, $e, 'testApiKey', $this->errorContext());
         }
     }
 }

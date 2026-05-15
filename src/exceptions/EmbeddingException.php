@@ -4,54 +4,40 @@ namespace ghoststreet\craftaisearch\exceptions;
 
 use Throwable;
 
-/**
- * Exception for embedding generation failures.
- * Thrown when OpenAI API calls fail or return invalid data.
- */
 class EmbeddingException extends AiSearchException
 {
     public static function emptyText(): self
     {
         $e = new self('Cannot generate embedding: text cannot be empty');
-        return $e->setUserMessage('Cannot generate an embedding for empty text.');
+        $e->errorCode = ErrorCode::EMBEDDING_EMPTY_TEXT;
+        return $e;
     }
 
     public static function rateLimited(Throwable $previous): self
     {
-        $e = new self(
-            'OpenAI API rate limit exceeded. Please wait a moment and try again.',
-            0,
-            $previous
-        );
-        $e->httpStatus = 429;
-        return $e->setUserMessage('OpenAI rate limit reached. Please retry shortly.');
+        $e = new self('OpenAI API rate limit exceeded.', 0, $previous);
+        $e->errorCode = ErrorCode::EMBEDDING_RATE_LIMITED;
+        return $e;
     }
 
     public static function quotaExceeded(Throwable $previous): self
     {
-        $e = new self(
-            'OpenAI API quota exceeded. Please check your OpenAI account billing.',
-            0,
-            $previous
-        );
-        $e->httpStatus = 429;
-        return $e->setUserMessage('OpenAI quota exceeded. Check your OpenAI account billing.');
+        $e = new self('OpenAI API quota exceeded.', 0, $previous);
+        $e->errorCode = ErrorCode::EMBEDDING_QUOTA_EXCEEDED;
+        return $e;
     }
 
     public static function invalidApiKey(Throwable $previous): self
     {
-        $e = new self(
-            'Invalid OpenAI API key. Please check your plugin settings.',
-            0,
-            $previous
-        );
-        $e->httpStatus = 503;
-        return $e->setUserMessage('OpenAI rejected the request: the API key is invalid. Check your plugin settings.');
+        $e = new self('Invalid OpenAI API key.', 0, $previous);
+        $e->errorCode = ErrorCode::EMBEDDING_INVALID_API_KEY;
+        return $e;
     }
 
     public static function apiError(string $message, Throwable $previous): self
     {
         $e = new self("Failed to generate embedding: {$message}", 0, $previous);
-        return $e->setUserMessage('OpenAI embedding request failed. The administrator can find the technical details in the AI Search log.');
+        $e->errorCode = ErrorCode::EMBEDDING_API_ERROR;
+        return $e;
     }
 }

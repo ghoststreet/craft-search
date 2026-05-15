@@ -3,6 +3,7 @@
 namespace ghoststreet\craftaisearch\helpers;
 
 use Craft;
+use ghoststreet\craftaisearch\exceptions\ErrorCode;
 
 /**
  * Helper for extracting and validating common request parameters.
@@ -75,7 +76,7 @@ final class RequestParameterExtractor
             return [
                 'siteId' => null,
                 'allSites' => false,
-                'validationError' => ['success' => false, 'error' => "Unknown siteId: {$siteId}"],
+                'validationError' => ['success' => false, 'code' => ErrorCode::SEARCH_VALIDATION_FAILED->value],
             ];
         }
 
@@ -83,10 +84,7 @@ final class RequestParameterExtractor
             return [
                 'siteId' => null,
                 'allSites' => false,
-                'validationError' => [
-                    'success' => false,
-                    'error' => 'siteId is required on multi-site installations; pass siteId=0 to search all sites',
-                ],
+                'validationError' => ['success' => false, 'code' => ErrorCode::SEARCH_VALIDATION_FAILED->value],
             ];
         }
 

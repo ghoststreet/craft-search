@@ -10,23 +10,15 @@ use RuntimeException;
  */
 abstract class AiSearchException extends RuntimeException
 {
-    protected int $httpStatus = 500;
+    protected ErrorCode $errorCode = ErrorCode::UNKNOWN;
 
-    protected ?string $userMessage = null;
+    public function errorCode(): ErrorCode
+    {
+        return $this->errorCode;
+    }
 
     public function httpStatus(): int
     {
-        return $this->httpStatus;
-    }
-
-    public function userMessage(): string
-    {
-        return $this->userMessage ?? $this->getMessage();
-    }
-
-    public function setUserMessage(string $message): static
-    {
-        $this->userMessage = $message;
-        return $this;
+        return $this->errorCode->httpStatus();
     }
 }

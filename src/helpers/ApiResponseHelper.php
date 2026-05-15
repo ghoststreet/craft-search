@@ -3,86 +3,75 @@
 namespace ghoststreet\craftaisearch\helpers;
 
 use craft\web\Controller;
-use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\AiSearchException;
+use ghoststreet\craftaisearch\exceptions\ErrorCode;
+use ghoststreet\craftaisearch\exceptions\RateLimitException;
 use Throwable;
 use yii\web\Response;
 
 /**
  * Helper for creating standardized API responses.
  *
- * Consolidates duplicate error response patterns across controller endpoints
- * into reusable methods with consistent formatting.
+ * Strict error shape: { success: false, code, requestId?, retryAfter? }.
+ * Stack traces never appear in API responses — they go to ai-search.log.
  */
 final class ApiResponseHelper
 {
-    /** Maximum allowed limit for search results */
     public const MAX_LIMIT = 100;
-    /** Maximum allowed query length in characters */
     public const MAX_QUERY_LENGTH = 150;
 
     /**
-     * Create an error response array.
+     * Build a strict error body. Always logs the exception with full trace.
      *
-     * @param Throwable $e The exception that occurred
-     * @param string $operation Short operation label for log correlation
-     * @param array $context Extra log context (e.g. requestId, query)
-     * @return array{success: false, error: string, trace?: string}
+     * @return array{success: false, code: string, requestId?: string, retryAfter?: int}
      */
     public static function error(Throwable $e, string $operation = 'API error', array $context = []): array
     {
-        $response = [
-            'success' => false,
-            'error' => ErrorPresenter::present($e, $operation, $context),
-        ];
+        $code = ErrorMapper::codeFor($e);
+        Logger::exception($e, $operation, $context + ['code' => $code->value]);
+
+        $body = ['success' => false, 'code' => $code->value];
 
         if (!empty($context['requestId'])) {
-            $response['requestId'] = $context['requestId'];
+            $body['requestId'] = $context['requestId'];
         }
 
-        if (AiSearch::getInstance()->getSettings()->exposeStackTraces) {
-            $response['trace'] = $e->getTraceAsString();
+        if ($e instanceof RateLimitException) {
+            $body['retryAfter'] = $e->retryAfterSeconds;
+        }
+
+        return $body;
+    }
+
+    /**
+     * Build a JSON error Response with the correct status code (and Retry-After if applicable).
+     */
+    public static function jsonError(Controller $controller, Throwable $e, string $operation = 'API error', array $context = []): Response
+    {
+        $status = $e instanceof AiSearchException ? $e->httpStatus() : 500;
+        $response = $controller->asJson(self::error($e, $operation, $context))->setStatusCode($status);
+
+        if ($e instanceof RateLimitException) {
+            $response->getHeaders()->set('Retry-After', (string) $e->retryAfterSeconds);
         }
 
         return $response;
     }
 
     /**
-     * Build a JSON error Response with status code derived from the exception type.
-     * AiSearchException subclasses provide their own httpStatus(); everything else is 500.
-     */
-    public static function jsonError(Controller $controller, Throwable $e, string $operation = 'API error', array $context = []): Response
-    {
-        $status = $e instanceof AiSearchException ? $e->httpStatus() : 500;
-        return $controller->asJson(self::error($e, $operation, $context))->setStatusCode($status);
-    }
-
-    /**
-     * Check if query parameter is valid and return validation error if not.
+     * Validate query parameter; return strict error body if invalid, null if valid.
      *
-     * @param string $query The query string to validate
-     * @return array|null Returns validation error array if invalid, null if valid
+     * @return array{success: false, code: string}|null
      */
     public static function validateQuery(string $query): ?array
     {
-        if (TextValidator::isEmpty($query)) {
-            return ['success' => false, 'error' => 'Query parameter "q" is required'];
-        }
-
-        if (mb_strlen($query) > self::MAX_QUERY_LENGTH) {
-            return ['success' => false, 'error' => sprintf('Query exceeds maximum length of %d characters', self::MAX_QUERY_LENGTH)];
+        if (TextValidator::isEmpty($query) || mb_strlen($query) > self::MAX_QUERY_LENGTH) {
+            return ['success' => false, 'code' => ErrorCode::SEARCH_VALIDATION_FAILED->value];
         }
 
         return null;
     }
 
-    /**
-     * Validate and constrain limit parameter to safe bounds.
-     *
-     * @param int $limit The requested limit
-     * @param int $default Default limit if input is invalid
-     * @return int Constrained limit between 1 and MAX_LIMIT
-     */
     public static function validateLimit(int $limit, int $default = 10): int
     {
         if ($limit < 1) {

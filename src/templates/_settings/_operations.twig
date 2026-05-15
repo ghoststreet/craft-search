@@ -43,10 +43,4 @@
         required: true, errors: settings.getErrors('historyRetentionDays'),
     }) }}
 
-    {{ forms.lightswitchField({
-        label: 'Expose stack traces in API errors',
-        instructions: 'Off by default. Keep off in production.',
-        id: 'exposeStackTraces', name: 'exposeStackTraces',
-        on: settings.exposeStackTraces, errors: settings.getErrors('exposeStackTraces'),
-    }) }}
 {% endnamespace %}
