@@ -14,32 +14,10 @@
     {% if setup.ready %}
         <h2>Index Statistics</h2>
 
-        <table class="data fullwidth">
-            <tbody>
-                <tr>
-                    <th class="light">Database Status</th>
-                    <td><span class="status on"></span> Connected</td>
-                </tr>
-                <tr>
-                    <th class="light">Indexed Entries</th>
-                    <td id="stat-entries">{{ stats.entryCount|number_format }}</td>
-                </tr>
-                <tr>
-                    <th class="light">Total Chunks</th>
-                    <td id="stat-chunks">{{ stats.chunkCount|number_format }}</td>
-                </tr>
-                <tr>
-                    <th class="light">Last Updated</th>
-                    <td>
-                        {% if stats.lastIndexed %}
-                            {{ stats.lastIndexed|date('F j, Y g:i a') }}
-                        {% else %}
-                            Never
-                        {% endif %}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        {% include 'ai-search/_partials/index-stats-table' with {
+            stats: stats,
+            labels: { database: 'Database Status', entries: 'Indexed Entries', chunks: 'Total Chunks', lastUpdated: 'Last Updated' },
+        } only %}
     {% else %}
         <h2>Finish Setup</h2>
         <p class="light">Complete these steps to enable AI Search indexing. Each step links to where it can be fixed.</p>

@@ -1,0 +1,52 @@
+{#
+    Health pills row: OpenAI key, Database, Index, Budget.
+
+    Params:
+        settings      Plugin settings model
+        stats         { isConnected, lastIndexed }
+        coveragePct   int
+        budget        { cap, ratio }
+        budgetPct     int
+#}
+<div class="aisearch-health-row">
+    <div class="aisearch-health-pill">
+        <span class="status {{ settings.openaiApiKey ? 'on' : 'off' }}"></span>
+        <div>
+            <div class="label">OpenAI</div>
+            <div class="sub">{{ settings.openaiApiKey ? 'Key configured' : 'No API key' }}</div>
+        </div>
+    </div>
+    <div class="aisearch-health-pill">
+        <span class="status {{ stats.isConnected ? 'on' : 'off' }}"></span>
+        <div>
+            <div class="label">Database</div>
+            <div class="sub">{{ stats.isConnected ? 'Connected' : 'Disconnected' }}</div>
+        </div>
+    </div>
+    <div class="aisearch-health-pill">
+        <span class="status {{ coveragePct >= 95 ? 'on' : (coveragePct >= 50 ? 'orange' : 'off') }}"></span>
+        <div>
+            <div class="label">Index</div>
+            <div class="sub">
+                {% if stats.lastIndexed %}
+                    Last sync {{ stats.lastIndexed|date('M j, g:i A') }}
+                {% else %}
+                    Never synced
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="aisearch-health-pill">
+        <span class="status {{ budget.cap == 0 ? 'disabled' : (budget.ratio >= 0.9 ? 'off' : (budget.ratio >= 0.75 ? 'orange' : 'on')) }}"></span>
+        <div>
+            <div class="label">Budget</div>
+            <div class="sub">
+                {% if budget.cap > 0 %}
+                    {{ budgetPct }}% of daily cap
+                {% else %}
+                    No cap configured
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

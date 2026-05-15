@@ -1,0 +1,42 @@
+{#
+    Pagination using url(craft.app.request.pathInfo, …) + btngroup style.
+    Used by debug/index and index-mgmt/index entry listings.
+
+    Params:
+        currentPage  int
+        totalPages   int
+        params       object  query params to preserve and merge with `page`
+        prevLabel    string  default 'Prev' (debug uses |t)
+        nextLabel    string  default 'Next'
+        pageLabel    string  pre-formatted "Page X of Y" string
+
+    Usage:
+        {% include 'ai-search/_components/pagination-path' with {
+            currentPage: result.page, totalPages: totalPages,
+            params: filters,
+            pageLabel: 'Page ' ~ result.page ~ ' of ' ~ totalPages,
+        } only %}
+#}
+{% set prevLabel = prevLabel ?? 'Prev' %}
+{% set nextLabel = nextLabel ?? 'Next' %}
+{% if totalPages > 1 %}
+    <div class="pagination">
+        <div class="btngroup">
+            {% if currentPage > 1 %}
+                <a class="btn" href="{{ url(craft.app.request.pathInfo, params|merge({ page: currentPage - 1 })) }}">
+                    <span data-icon="leftangle"></span> {{ prevLabel }}
+                </a>
+            {% else %}
+                <span class="btn disabled"><span data-icon="leftangle"></span> {{ prevLabel }}</span>
+            {% endif %}
+            {% if currentPage < totalPages %}
+                <a class="btn" href="{{ url(craft.app.request.pathInfo, params|merge({ page: currentPage + 1 })) }}">
+                    {{ nextLabel }} <span data-icon="rightangle"></span>
+                </a>
+            {% else %}
+                <span class="btn disabled">{{ nextLabel }} <span data-icon="rightangle"></span></span>
+            {% endif %}
+        </div>
+        <span class="page-label">{{ pageLabel }}</span>
+    </div>
+{% endif %}

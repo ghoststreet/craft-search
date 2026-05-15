@@ -1,0 +1,30 @@
+{#
+    Index status counts grid (Total / Indexed / Stale / Not indexed).
+    Shared by debug/index.twig and index-mgmt/index.twig.
+
+    Params:
+        counts  object  { total, indexed, stale, 'not-indexed' }
+        labels  object  { total, indexed, stale, notIndexed }
+#}
+{% set labels = labels ?? { total: 'Total', indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed' } %}
+<div class="ai-search-stats">
+    <div class="meta-item">
+        <span class="count">{{ counts.total }}</span>
+        <span class="label">{{ labels.total }}</span>
+    </div>
+    <div class="meta-item">
+        <span class="status green"></span>
+        <span class="count">{{ counts.indexed }}</span>
+        <span class="label">{{ labels.indexed }}</span>
+    </div>
+    <div class="meta-item">
+        <span class="status orange"></span>
+        <span class="count">{{ counts.stale }}</span>
+        <span class="label">{{ labels.stale }}</span>
+    </div>
+    <div class="meta-item">
+        <span class="status off"></span>
+        <span class="count">{{ counts['not-indexed'] }}</span>
+        <span class="label">{{ labels.notIndexed }}</span>
+    </div>
+</div>

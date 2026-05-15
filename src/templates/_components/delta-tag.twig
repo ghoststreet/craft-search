@@ -1,0 +1,18 @@
+{#
+    Period-over-period delta tag (▲ N% / ▼ N% / ±0% / —).
+
+    Usage:
+        {% import 'ai-search/_components/delta-tag' as ui %}
+        {{ ui.deltaTag(value) }}
+#}
+{% macro deltaTag(delta) %}
+    {% if delta is null %}
+        <span class="delta">—</span>
+    {% elseif delta > 0 %}
+        <span class="delta up">▲ {{ delta }}%</span>
+    {% elseif delta < 0 %}
+        <span class="delta down">▼ {{ (-delta) }}%</span>
+    {% else %}
+        <span class="delta">±0%</span>
+    {% endif %}
+{% endmacro %}

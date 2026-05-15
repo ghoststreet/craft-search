@@ -1,0 +1,73 @@
+{#
+    KPI hero strip: Searches, Cost, Coverage, Avg response time.
+
+    Params:
+        aggregates       { searches30, searchesDelta, cost30, costDelta, avgDurationMs, errors30 }
+        seriesSearches   array  sparkline data
+        seriesCost       array  area chart data
+        seriesDuration   array  duration chart data
+        coverageTotals   { indexed, stale, notIndexed }
+        coverageTotal    int
+        coveragePct      int
+        budget           { cap, spent, ratio, etaDays }
+        budgetClass      string  CSS modifier
+        budgetPct        int
+#}
+{% import 'ai-search/_components/delta-tag' as ui %}
+
+<div class="aisearch-kpi-grid">
+    <div class="aisearch-kpi">
+        <div class="label">Searches (30d)</div>
+        <div class="value">{{ aggregates.searches30|number_format }}</div>
+        <div>{{ ui.deltaTag(aggregates.searchesDelta) }} <span class="sub" style="color: var(--medium-text-color); font-size:11px;">vs prior 15d</span></div>
+        <div class="chart-wrap">
+            <canvas data-craftsearch-chart="sparkline" data-craftsearch-series="{{ seriesSearches|json_encode|e('html_attr') }}"></canvas>
+        </div>
+    </div>
+
+    <div class="aisearch-kpi">
+        <div class="label">Cost (30d)</div>
+        <div class="value">${{ aggregates.cost30|number_format(4) }}</div>
+        <div>
+            {{ ui.deltaTag(aggregates.costDelta) }}
+            {% if budget.cap > 0 %}
+                <span style="color: var(--medium-text-color); font-size:11px;">Today: ${{ budget.spent|number_format(4) }} / ${{ budget.cap|number_format(2) }}</span>
+            {% endif %}
+        </div>
+        <div class="chart-wrap">
+            <canvas data-craftsearch-chart="area" data-craftsearch-series="{{ seriesCost|json_encode|e('html_attr') }}"></canvas>
+        </div>
+        {% if budget.cap > 0 %}
+            <div class="aisearch-budget-bar {{ budgetClass }}" title="{{ budgetPct }}% of daily cap used">
+                <span style="width: {{ budgetPct }}%"></span>
+            </div>
+            {% if budget.etaDays is not null and budget.etaDays < 30 %}
+                <div class="delta" style="font-size:11px;">Projected to hit cap in ~{{ budget.etaDays }} days</div>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <div class="aisearch-kpi aisearch-kpi-donut">
+        <div class="label">Index Coverage</div>
+        <div class="value">{{ coveragePct }}%</div>
+        <div class="delta">{{ coverageTotals.indexed|number_format }} / {{ coverageTotal|number_format }} entries</div>
+        <div class="chart-wrap">
+            <canvas data-craftsearch-chart="donut" data-craftsearch-series="{{ coverageTotals|json_encode|e('html_attr') }}"></canvas>
+        </div>
+    </div>
+
+    <div class="aisearch-kpi">
+        <div class="label">Avg Response Time</div>
+        <div class="value">{{ aggregates.avgDurationMs|number_format }}<span style="font-size:14px; color: var(--medium-text-color);"> ms</span></div>
+        <div class="delta">
+            {% if aggregates.errors30 > 0 %}
+                <span style="color: #cf1322;">{{ aggregates.errors30 }} errors</span>
+            {% else %}
+                No errors recorded
+            {% endif %}
+        </div>
+        <div class="chart-wrap">
+            <canvas data-craftsearch-chart="duration" data-craftsearch-series="{{ seriesDuration|json_encode|e('html_attr') }}"></canvas>
+        </div>
+    </div>
+</div>

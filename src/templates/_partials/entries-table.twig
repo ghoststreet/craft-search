@@ -1,0 +1,61 @@
+{#
+    Indexable entries listing table. Shared by debug/index.twig and index-mgmt/index.twig.
+
+    Params:
+        rows           iterable
+        entryUrlPath   string   cpUrl path for the detail link, e.g. 'ai-search/debug/entry'
+        labels         object   { title, section, status, chunks, lastIndexed,
+                                  indexed, stale, notIndexed, emptyMessage, untitled }
+#}
+{% set labels = labels ?? {} %}
+{% set L = {
+    title: 'Title', section: 'Section', status: 'Status',
+    chunks: 'Chunks', lastIndexed: 'Last indexed',
+    indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed',
+    emptyMessage: 'No entries match these filters.', untitled: '(untitled)',
+}|merge(labels) %}
+
+{% if rows|length %}
+    <table class="data fullwidth">
+        <thead>
+            <tr>
+                <th scope="col">{{ L.title }}</th>
+                <th scope="col">{{ L.section }}</th>
+                <th scope="col" class="thin">{{ L.status }}</th>
+                <th scope="col" class="thin">{{ L.chunks }}</th>
+                <th scope="col" class="thin">{{ L.lastIndexed }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td class="cell-bold">
+                        <a href="{{ cpUrl(entryUrlPath, { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: L.untitled }}</a>
+                    </td>
+                    <td>{{ row.section }}</td>
+                    <td class="thin">
+                        {% if row.status == 'indexed' %}
+                            <span class="status green"></span> {{ L.indexed }}
+                        {% elseif row.status == 'stale' %}
+                            <span class="status orange"></span> {{ L.stale }}
+                        {% else %}
+                            <span class="status off"></span> {{ L.notIndexed }}
+                        {% endif %}
+                    </td>
+                    <td class="thin">{{ row.chunkCount }}</td>
+                    <td class="thin">
+                        {% if row.lastIndexed %}
+                            {{ row.lastIndexed|date('M j, Y g:i A') }}
+                        {% else %}
+                            <span class="light">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="zilch">
+        <p>{{ L.emptyMessage }}</p>
+    </div>
+{% endif %}

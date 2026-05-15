@@ -1,0 +1,25 @@
+{#
+    Pagination nav using cpUrl + baseParams|merge({page: n}).
+    Used by history/insights pages that page through searches.
+
+    Params:
+        currentPage  int    current page number
+        totalPages   int    total number of pages
+        path         string cpUrl path (e.g. 'ai-search/history')
+        baseParams   object query params to preserve across pages
+
+    Usage:
+        {% include 'ai-search/_components/pagination-cp' with {
+            currentPage: page.page, totalPages: page.pages,
+            path: 'ai-search/history',
+            baseParams: { type: typeFilter, days: daysFilter, ... }
+        } only %}
+#}
+{% set navStyle = navStyle ?? 'margin-top: 16px; display: flex; gap: 4px; align-items: center;' %}
+{% if totalPages > 1 %}
+    <nav style="{{ navStyle }}">
+        {% if currentPage > 1 %}<a class="btn" href="{{ cpUrl(path, baseParams|merge({ page: currentPage - 1 })) }}">‹ Prev</a>{% endif %}
+        <span class="light" style="margin: 0 8px;">Page {{ currentPage }} of {{ totalPages }}</span>
+        {% if currentPage < totalPages %}<a class="btn" href="{{ cpUrl(path, baseParams|merge({ page: currentPage + 1 })) }}">Next ›</a>{% endif %}
+    </nav>
+{% endif %}

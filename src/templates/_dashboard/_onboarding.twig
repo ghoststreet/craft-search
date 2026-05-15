@@ -1,0 +1,34 @@
+{#
+    Onboarding card shown on the dashboard until setup is complete.
+
+    Params:
+        settings  Plugin settings model
+        stats     { isConnected, entryCount }
+#}
+{% set steps = [
+    { done: settings.openaiApiKey ? true : false, label: 'Configure your OpenAI API key', hint: 'Generate embeddings and power RAG search.', cta: 'ai-search/settings' },
+    { done: stats.isConnected, label: 'Connect your PostgreSQL / pgvector database', hint: 'Stores embeddings for fast semantic lookup.', cta: 'ai-search/settings' },
+    { done: stats.isConnected and stats.entryCount > 0, label: 'Run your first index', hint: 'Generates vectors for every published entry.', cta: 'ai-search/index' },
+] %}
+
+<div class="aisearch-card">
+    <h2 style="margin-top:0;">Finish setting up AI Search</h2>
+    <p class="light" style="margin-top:0;">Three steps separate you from intelligent, AI-powered search on your Craft site.</p>
+
+    <ol class="aisearch-onboarding">
+        {% for s in steps %}
+            <li class="{{ s.done ? 'done' : '' }}">
+                <span class="step-icon">
+                    {% if s.done %}<span data-icon="check"></span>{% else %}{{ loop.index }}{% endif %}
+                </span>
+                <div>
+                    <strong>{{ s.label }}</strong>
+                    <div class="light smalltext">{{ s.hint }}</div>
+                </div>
+                {% if not s.done %}
+                    <a class="btn submit" href="{{ cpUrl(s.cta) }}">Open</a>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ol>
+</div>

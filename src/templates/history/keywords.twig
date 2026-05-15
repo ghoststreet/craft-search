@@ -1,4 +1,5 @@
 {% extends "_layouts/cp" %}
+{% import 'ai-search/_components/filter-fields' as f %}
 
 {% set title = 'Search Keywords' %}
 {% set selectedSubnavItem = 'keywords' %}
@@ -8,38 +9,9 @@
 
 {% block content %}
     <form method="get" action="{{ cpUrl('ai-search/history/keywords') }}" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;">
-        <div class="field">
-            <div class="heading"><label>Time Range</label></div>
-            <div class="input">
-                <div class="select">
-                    <select name="days">
-                        <option value="">All time</option>
-                        <option value="1"{% if daysFilter == 1 %} selected{% endif %}>Last 24 hours</option>
-                        <option value="7"{% if daysFilter == 7 %} selected{% endif %}>Last 7 days</option>
-                        <option value="30"{% if daysFilter == 30 %} selected{% endif %}>Last 30 days</option>
-                        <option value="90"{% if daysFilter == 90 %} selected{% endif %}>Last 90 days</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        {% if keywords.sites is not empty %}
-            <div class="field">
-                <div class="heading"><label>Site</label></div>
-                <div class="input">
-                    <div class="select">
-                        <select name="siteId">
-                            <option value="">All sites</option>
-                            {% for s in keywords.sites %}
-                                <option value="{{ s.id }}"{% if siteFilter == s.id %} selected{% endif %}>{{ s.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-            </div>
-        {% endif %}
-        <div class="field">
-            <button type="submit" class="btn">Filter</button>
-        </div>
+        {{ f.daysSelect(daysFilter) }}
+        {{ f.sitesSelect(keywords.sites, siteFilter) }}
+        {{ f.submitButton() }}
     </form>
 
     <p class="light" style="margin-bottom: 16px;">

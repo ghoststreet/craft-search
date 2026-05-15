@@ -2,29 +2,13 @@
 
 {% set title = 'AI Search' %}
 
-{% macro deltaTag(delta) %}
-    {% if delta is null %}
-        <span class="delta">—</span>
-    {% elseif delta > 0 %}
-        <span class="delta up">▲ {{ delta }}%</span>
-    {% elseif delta < 0 %}
-        <span class="delta down">▼ {{ (-delta) }}%</span>
-    {% else %}
-        <span class="delta">±0%</span>
-    {% endif %}
-{% endmacro %}
-
-{% from _self import deltaTag %}
-
+{# Build the chart series upfront so the KPI grid partial stays presentation-only. #}
 {% set seriesSearches = [] %}
 {% set seriesCost = [] %}
+{% set seriesDuration = [] %}
 {% for r in dailySeries %}
     {% set seriesSearches = seriesSearches|merge([{ date: r.date, value: r.searches }]) %}
     {% set seriesCost = seriesCost|merge([{ date: r.date, value: r.cost }]) %}
-{% endfor %}
-
-{% set seriesDuration = [] %}
-{% for r in dailySeries %}
     {% set seriesDuration = seriesDuration|merge([{ date: r.date, avg: r.avgMs, p95: r.p95Ms }]) %}
 {% endfor %}
 
@@ -46,227 +30,51 @@
 <div class="aisearch-dash">
 
     {% if not setupComplete %}
-        {# Focused onboarding — hide the empty dashboard until setup is done. #}
-        {% set steps = [
-            { done: settings.openaiApiKey ? true : false, label: 'Configure your OpenAI API key', hint: 'Generate embeddings and power RAG search.', cta: 'ai-search/settings' },
-            { done: stats.isConnected, label: 'Connect your PostgreSQL / pgvector database', hint: 'Stores embeddings for fast semantic lookup.', cta: 'ai-search/settings' },
-            { done: stats.isConnected and stats.entryCount > 0, label: 'Run your first index', hint: 'Generates vectors for every published entry.', cta: 'ai-search/index' },
-        ] %}
-
-        <div class="aisearch-card">
-            <h2 style="margin-top:0;">Finish setting up AI Search</h2>
-            <p class="light" style="margin-top:0;">Three steps separate you from intelligent, AI-powered search on your Craft site.</p>
-
-            <ol class="aisearch-onboarding">
-                {% for s in steps %}
-                    <li class="{{ s.done ? 'done' : '' }}">
-                        <span class="step-icon">
-                            {% if s.done %}<span data-icon="check"></span>{% else %}{{ loop.index }}{% endif %}
-                        </span>
-                        <div>
-                            <strong>{{ s.label }}</strong>
-                            <div class="light smalltext">{{ s.hint }}</div>
-                        </div>
-                        {% if not s.done %}
-                            <a class="btn submit" href="{{ cpUrl(s.cta) }}">Open</a>
-                        {% endif %}
-                    </li>
-                {% endfor %}
-            </ol>
-        </div>
+        {% include 'ai-search/_dashboard/_onboarding' with { settings: settings, stats: stats } only %}
 
     {% else %}
 
-    {# Critical alerts: only show top-priority advisory as full banner #}
-    {% set criticals = recommendations|filter(r => r.level == 'crit') %}
-    {% if criticals|length %}
-        {% set top = criticals|first %}
-        <div class="aisearch-alert">
-            <strong>{{ top.title }}.</strong> {{ top.body }}
-            {% if top.cta %} <a href="{{ top.cta.url }}">{{ top.cta.label }} →</a>{% endif %}
-        </div>
+        {# Critical alerts: only show top-priority advisory as full banner #}
+        {% set criticals = recommendations|filter(r => r.level == 'crit') %}
+        {% if criticals|length %}
+            {% set top = criticals|first %}
+            <div class="aisearch-alert">
+                <strong>{{ top.title }}.</strong> {{ top.body }}
+                {% if top.cta %} <a href="{{ top.cta.url }}">{{ top.cta.label }} →</a>{% endif %}
+            </div>
+        {% endif %}
+
+        {% include 'ai-search/_dashboard/_kpi-grid' with {
+            aggregates: aggregates,
+            seriesSearches: seriesSearches,
+            seriesCost: seriesCost,
+            seriesDuration: seriesDuration,
+            coverageTotals: coverageTotals,
+            coverageTotal: coverageTotal,
+            coveragePct: coveragePct,
+            budget: budget,
+            budgetClass: budgetClass,
+            budgetPct: budgetPct,
+        } only %}
+
+        {% include 'ai-search/_dashboard/_health-row' with {
+            settings: settings,
+            stats: stats,
+            coveragePct: coveragePct,
+            budget: budget,
+            budgetPct: budgetPct,
+        } only %}
+
+        {% include 'ai-search/_dashboard/_body-cards' with {
+            topQueries: topQueries,
+            zeroResults: zeroResults,
+            coverage: coverage,
+            coverageTotal: coverageTotal,
+            recentErrors: recentErrors,
+        } only %}
+
+        {% include 'ai-search/_dashboard/_recommendations' with { recommendations: recommendations } only %}
+
     {% endif %}
-
-    {# KPI hero strip #}
-    <div class="aisearch-kpi-grid">
-        <div class="aisearch-kpi">
-            <div class="label">Searches (30d)</div>
-            <div class="value">{{ aggregates.searches30|number_format }}</div>
-            <div>{{ deltaTag(aggregates.searchesDelta) }} <span class="sub" style="color: var(--medium-text-color); font-size:11px;">vs prior 15d</span></div>
-            <div class="chart-wrap">
-                <canvas data-craftsearch-chart="sparkline" data-craftsearch-series="{{ seriesSearches|json_encode|e('html_attr') }}"></canvas>
-            </div>
-        </div>
-
-        <div class="aisearch-kpi">
-            <div class="label">Cost (30d)</div>
-            <div class="value">${{ aggregates.cost30|number_format(4) }}</div>
-            <div>
-                {{ deltaTag(aggregates.costDelta) }}
-                {% if budget.cap > 0 %}
-                    <span style="color: var(--medium-text-color); font-size:11px;">Today: ${{ budget.spent|number_format(4) }} / ${{ budget.cap|number_format(2) }}</span>
-                {% endif %}
-            </div>
-            <div class="chart-wrap">
-                <canvas data-craftsearch-chart="area" data-craftsearch-series="{{ seriesCost|json_encode|e('html_attr') }}"></canvas>
-            </div>
-            {% if budget.cap > 0 %}
-                <div class="aisearch-budget-bar {{ budgetClass }}" title="{{ budgetPct }}% of daily cap used">
-                    <span style="width: {{ budgetPct }}%"></span>
-                </div>
-                {% if budget.etaDays is not null and budget.etaDays < 30 %}
-                    <div class="delta" style="font-size:11px;">Projected to hit cap in ~{{ budget.etaDays }} days</div>
-                {% endif %}
-            {% endif %}
-        </div>
-
-        <div class="aisearch-kpi aisearch-kpi-donut">
-            <div class="label">Index Coverage</div>
-            <div class="value">{{ coveragePct }}%</div>
-            <div class="delta">{{ coverageTotals.indexed|number_format }} / {{ coverageTotal|number_format }} entries</div>
-            <div class="chart-wrap">
-                <canvas data-craftsearch-chart="donut" data-craftsearch-series="{{ coverageTotals|json_encode|e('html_attr') }}"></canvas>
-            </div>
-        </div>
-
-        <div class="aisearch-kpi">
-            <div class="label">Avg Response Time</div>
-            <div class="value">{{ aggregates.avgDurationMs|number_format }}<span style="font-size:14px; color: var(--medium-text-color);"> ms</span></div>
-            <div class="delta">
-                {% if aggregates.errors30 > 0 %}
-                    <span style="color: #cf1322;">{{ aggregates.errors30 }} errors</span>
-                {% else %}
-                    No errors recorded
-                {% endif %}
-            </div>
-            <div class="chart-wrap">
-                <canvas data-craftsearch-chart="duration" data-craftsearch-series="{{ seriesDuration|json_encode|e('html_attr') }}"></canvas>
-            </div>
-        </div>
-    </div>
-
-    {# Health row #}
-    <div class="aisearch-health-row">
-        <div class="aisearch-health-pill">
-            <span class="status {{ settings.openaiApiKey ? 'on' : 'off' }}"></span>
-            <div>
-                <div class="label">OpenAI</div>
-                <div class="sub">{{ settings.openaiApiKey ? 'Key configured' : 'No API key' }}</div>
-            </div>
-        </div>
-        <div class="aisearch-health-pill">
-            <span class="status {{ stats.isConnected ? 'on' : 'off' }}"></span>
-            <div>
-                <div class="label">Database</div>
-                <div class="sub">{{ stats.isConnected ? 'Connected' : 'Disconnected' }}</div>
-            </div>
-        </div>
-        <div class="aisearch-health-pill">
-            <span class="status {{ coveragePct >= 95 ? 'on' : (coveragePct >= 50 ? 'orange' : 'off') }}"></span>
-            <div>
-                <div class="label">Index</div>
-                <div class="sub">
-                    {% if stats.lastIndexed %}
-                        Last sync {{ stats.lastIndexed|date('M j, g:i A') }}
-                    {% else %}
-                        Never synced
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="aisearch-health-pill">
-            <span class="status {{ budget.cap == 0 ? 'disabled' : (budget.ratio >= 0.9 ? 'off' : (budget.ratio >= 0.75 ? 'orange' : 'on')) }}"></span>
-            <div>
-                <div class="label">Budget</div>
-                <div class="sub">
-                    {% if budget.cap > 0 %}
-                        {{ budgetPct }}% of daily cap
-                    {% else %}
-                        No cap configured
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {# Two-column body #}
-    <div class="aisearch-two-col">
-        <div class="aisearch-card">
-            <h3>Top queries (7d)</h3>
-            {% if topQueries|length %}
-                <table class="aisearch-mini-table">
-                    {% for q in topQueries %}
-                        <tr>
-                            <td>{{ q.query }}</td>
-                            <td>{{ q.hits }} hit{{ q.hits == 1 ? '' : 's' }}</td>
-                        </tr>
-                    {% endfor %}
-                </table>
-                <p style="margin-top:10px;"><a class="go" href="{{ cpUrl('ai-search/insights') }}">View all queries</a></p>
-            {% else %}
-                <p class="empty">No search activity in the last 7 days.</p>
-            {% endif %}
-
-            <h3 style="margin-top:18px;">Zero-result queries (7d)</h3>
-            {% if zeroResults|length %}
-                <table class="aisearch-mini-table">
-                    {% for q in zeroResults %}
-                        <tr>
-                            <td>{{ q.query }}</td>
-                            <td>{{ q.hits }}×</td>
-                        </tr>
-                    {% endfor %}
-                </table>
-            {% else %}
-                <p class="empty">No zero-result queries — nice.</p>
-            {% endif %}
-        </div>
-
-        <div class="aisearch-card">
-            <h3>Coverage by site</h3>
-            {% if coverage|length and coverageTotal > 0 %}
-                <div style="height: 180px;">
-                    <canvas data-craftsearch-chart="stacked-bar" data-craftsearch-series="{{ coverage|json_encode|e('html_attr') }}"></canvas>
-                </div>
-            {% else %}
-                <p class="empty">No entries indexed yet.</p>
-            {% endif %}
-
-            <h3 style="margin-top:18px;">Recent errors</h3>
-            {% if recentErrors|length %}
-                <table class="aisearch-mini-table">
-                    {% for e in recentErrors %}
-                        <tr>
-                            <td>
-                                <a href="{{ cpUrl('ai-search/insights/' ~ e.id) }}">{{ (e.query ?: e.errorMessage ?: 'error')|slice(0, 60) }}</a>
-                            </td>
-                            <td>{{ e.dateCreated|date('M j, g:i A') }}</td>
-                        </tr>
-                    {% endfor %}
-                </table>
-            {% else %}
-                <p class="empty">No errors recorded.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    {# Recommendations card #}
-    {% if recommendations|length %}
-        <div class="aisearch-card aisearch-recommend">
-            <h3>Recommendations</h3>
-            <ul style="list-style:none; padding:0; margin:0;">
-                {% for r in recommendations %}
-                    <li>
-                        <span class="lvl {{ r.level }}">{{ r.level }}</span>
-                        <strong>{{ r.title }}.</strong>
-                        <span style="color: var(--medium-text-color);">{{ r.body }}</span>
-                        {% if r.cta %}<a href="{{ r.cta.url }}" style="margin-left:6px;">{{ r.cta.label }} →</a>{% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-    {% endif %}
-
-    {% endif %} {# /setupComplete #}
 </div>
 {% endblock %}
