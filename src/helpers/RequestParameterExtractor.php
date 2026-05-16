@@ -76,7 +76,7 @@ final class RequestParameterExtractor
             return [
                 'siteId' => null,
                 'allSites' => false,
-                'validationError' => ['success' => false, 'code' => ErrorCode::SEARCH_VALIDATION_FAILED->value],
+                'validationError' => self::validationErrorBody(),
             ];
         }
 
@@ -84,7 +84,7 @@ final class RequestParameterExtractor
             return [
                 'siteId' => null,
                 'allSites' => false,
-                'validationError' => ['success' => false, 'code' => ErrorCode::SEARCH_VALIDATION_FAILED->value],
+                'validationError' => self::validationErrorBody(),
             ];
         }
 
@@ -103,7 +103,20 @@ final class RequestParameterExtractor
         return [
             'siteId' => null,
             'allSites' => false,
-            'validationError' => ['success' => false, 'error' => "Unknown siteId: {$siteId}"],
+            'validationError' => self::validationErrorBody(),
+        ];
+    }
+
+    /**
+     * @return array{success: false, code: string, message: string}
+     */
+    private static function validationErrorBody(): array
+    {
+        $code = ErrorCode::SEARCH_VALIDATION_FAILED;
+        return [
+            'success' => false,
+            'code' => $code->value,
+            'message' => Craft::t('ai-search', $code->message()),
         ];
     }
 }

@@ -24,6 +24,24 @@ use yii\base\Component;
  */
 class RagSearchService extends Component
 {
+    /**
+     * Classify an unexpected Throwable from the RAG pipeline into a SearchException
+     * with a specific ErrorCode. OpenAI / Guzzle HTTP failures map to SEARCH_RAG_LLM_ERROR
+     * so the user-facing message reflects an upstream provider failure rather than the
+     * generic "AI summary failed" bucket. Raw provider text stays in the log only.
+     */
+    private static function wrapUpstream(\Throwable $e): SearchException
+    {
+        $cause = $e instanceof \Exception ? $e : new RuntimeException($e->getMessage(), 0);
+        $isOpenAiError = is_a($e, 'OpenAI\\Exceptions\\ErrorException')
+            || str_starts_with(get_class($e), 'OpenAI\\Exceptions\\');
+
+        if ($isOpenAiError) {
+            return SearchException::ragLlmFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
+        }
+
+        return SearchException::ragSearchFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
+    }
 
     /**
      * Perform AI-powered search: hybrid retrieval followed by LLM summary generation.
@@ -73,13 +91,10 @@ class RagSearchService extends Component
                 return $this->parseResponse($llmResponse, $searchResults, $limit);
             } catch (AiSearchException $e) {
                 Logger::exception($e, 'ragSearch', ['query' => substr($query, 0, 50)]);
-                throw SearchException::ragSearchFailed($e->getMessage(), $e);
+                throw $e;
             } catch (\Throwable $e) {
                 Logger::exception($e, 'ragSearch', ['query' => substr($query, 0, 50)]);
-                throw SearchException::ragSearchFailed(
-                    get_class($e) . ': ' . $e->getMessage(),
-                    $e instanceof \Exception ? $e : new RuntimeException($e->getMessage(), 0)
-                );
+                throw self::wrapUpstream($e);
             }
         });
     }
@@ -159,7 +174,7 @@ class RagSearchService extends Component
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
             ],
-            'reasoning_effort' => 'minimal',
+            'reasoning_effort' => 'low',
             'verbosity' => 'low',
         ]);
 
@@ -207,13 +222,10 @@ class RagSearchService extends Component
             yield ['type' => 'done'];
         } catch (AiSearchException $e) {
             Logger::exception($e, 'ragSearchStream', ['query' => substr($query, 0, 50)]);
-            throw SearchException::ragSearchFailed($e->getMessage(), $e);
+            throw $e;
         } catch (\Throwable $e) {
             Logger::exception($e, 'ragSearchStream', ['query' => substr($query, 0, 50)]);
-            throw SearchException::ragSearchFailed(
-                get_class($e) . ': ' . $e->getMessage(),
-                $e instanceof \Exception ? $e : new RuntimeException($e->getMessage(), 0)
-            );
+            throw self::wrapUpstream($e);
         }
     }
 
@@ -238,7 +250,7 @@ class RagSearchService extends Component
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
             ],
-            'reasoning_effort' => 'minimal',
+            'reasoning_effort' => 'low',
             'verbosity' => 'low',
             'stream_options' => ['include_usage' => true],
         ]);

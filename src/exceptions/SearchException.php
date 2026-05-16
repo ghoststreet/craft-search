@@ -20,6 +20,13 @@ class SearchException extends AiSearchException
         return $e;
     }
 
+    public static function ragLlmFailed(string $reason, Throwable $previous): self
+    {
+        $e = new self("RAG LLM call failed: {$reason}", 0, $previous);
+        $e->errorCode = ErrorCode::SEARCH_RAG_LLM_ERROR;
+        return $e;
+    }
+
     public static function vectorQueryFailed(Throwable $previous): self
     {
         $e = new self(

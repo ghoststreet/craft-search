@@ -2,6 +2,7 @@
 
 namespace ghoststreet\craftaisearch\helpers;
 
+use Craft;
 use craft\web\Controller;
 use ghoststreet\craftaisearch\exceptions\AiSearchException;
 use ghoststreet\craftaisearch\exceptions\ErrorCode;
@@ -12,8 +13,10 @@ use yii\web\Response;
 /**
  * Helper for creating standardized API responses.
  *
- * Strict error shape: { success: false, code, requestId?, retryAfter? }.
- * Stack traces never appear in API responses — they go to ai-search.log.
+ * Strict error shape: { success: false, code, message, requestId?, retryAfter? }.
+ * `message` is always the curated string from ErrorCode::message() — raw exception
+ * text, HTTP client errors, and stack traces never appear in API responses; they
+ * go to ai-search.log only.
  */
 final class ApiResponseHelper
 {
@@ -22,15 +25,26 @@ final class ApiResponseHelper
 
     /**
      * Build a strict error body. Always logs the exception with full trace.
+     * The `message` field is the curated, user-facing string from ErrorCode::message();
+     * raw exception messages are NEVER serialized to clients — they go to the log only.
      *
-     * @return array{success: false, code: string, requestId?: string, retryAfter?: int}
+     * @return array{success: false, code: string, message: string, requestId?: string, retryAfter?: int}
      */
     public static function error(Throwable $e, string $operation = 'API error', array $context = []): array
     {
         $code = ErrorMapper::codeFor($e);
         Logger::exception($e, $operation, $context + ['code' => $code->value]);
 
-        $body = ['success' => false, 'code' => $code->value];
+        $message = ErrorMapper::translatedMessage($e);
+        if (!empty($context['requestId'])) {
+            $message .= " (Reference: {$context['requestId']})";
+        }
+
+        $body = [
+            'success' => false,
+            'code' => $code->value,
+            'message' => $message,
+        ];
 
         if (!empty($context['requestId'])) {
             $body['requestId'] = $context['requestId'];
@@ -61,12 +75,17 @@ final class ApiResponseHelper
     /**
      * Validate query parameter; return strict error body if invalid, null if valid.
      *
-     * @return array{success: false, code: string}|null
+     * @return array{success: false, code: string, message: string}|null
      */
     public static function validateQuery(string $query): ?array
     {
         if (TextValidator::isEmpty($query) || mb_strlen($query) > self::MAX_QUERY_LENGTH) {
-            return ['success' => false, 'code' => ErrorCode::SEARCH_VALIDATION_FAILED->value];
+            $code = ErrorCode::SEARCH_VALIDATION_FAILED;
+            return [
+                'success' => false,
+                'code' => $code->value,
+                'message' => Craft::t('ai-search', $code->message()),
+            ];
         }
 
         return null;

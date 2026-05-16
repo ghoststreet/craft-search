@@ -418,7 +418,11 @@ class SearchController extends BaseApiController
             $errorMessage = $e->getMessage();
             $code = ErrorMapper::codeFor($e);
             Logger::exception($e, 'ragStream', $this->errorContext($params) + ['code' => $code->value]);
-            $payload = ['code' => $code->value, 'requestId' => $this->requestId];
+            $payload = [
+                'code' => $code->value,
+                'message' => ErrorMapper::translatedMessage($e) . " (Reference: {$this->requestId})",
+                'requestId' => $this->requestId,
+            ];
             if ($e instanceof RateLimitException) {
                 $payload['retryAfter'] = $e->retryAfterSeconds;
             }
@@ -508,7 +512,11 @@ class SearchController extends BaseApiController
             $errorMessage = $e->getMessage();
             $code = ErrorMapper::codeFor($e);
             Logger::exception($e, 'ragStreamFallback', $this->errorContext($params) + ['code' => $code->value]);
-            $this->emitSse('error', ['code' => $code->value, 'requestId' => $this->requestId]);
+            $this->emitSse('error', [
+                'code' => $code->value,
+                'message' => ErrorMapper::translatedMessage($e) . " (Reference: {$this->requestId})",
+                'requestId' => $this->requestId,
+            ]);
         }
 
         $this->recordHistory('rag', $params, [
