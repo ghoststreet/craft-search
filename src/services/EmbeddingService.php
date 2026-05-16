@@ -17,6 +17,7 @@ use DateTime;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\exceptions\EmbeddingException;
+use ghoststreet\craftaisearch\exceptions\SearchException;
 use ghoststreet\craftaisearch\helpers\ContentPatterns;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\TextValidator;
@@ -597,19 +598,33 @@ class EmbeddingService extends Component
         }
 
         if ($element->getUrl() === null) {
-            Logger::debug('Skipping entry without URI', ['entryId' => $element->id]);
-            return;
+            throw SearchException::indexEntryMissingUrl($element->id, $element->siteId);
         }
 
         $text = $this->extractTextFromElement($element);
 
         if (TextValidator::isEmpty($text)) {
-            Logger::debug('No content to index for entry', ['entryId' => $element->id]);
+            Logger::debug('No content to index for entry', [
+                'entryId' => $element->id,
+                'siteId' => $element->siteId,
+                'reason' => 'extracted text is empty after stripping fields',
+            ]);
             return;
         }
 
+        $hash = hash('sha256', $text);
         $chunks = $this->chunkText($text);
         $totalChunks = count($chunks);
+
+        $fingerprint = AiSearch::getInstance()->databaseService->getStoredEntryFingerprint($element->id, $element->siteId);
+        if ($fingerprint['hash'] === $hash && $fingerprint['chunkCount'] === $totalChunks) {
+            Logger::debug('Skipping unchanged entry', [
+                'entryId' => $element->id,
+                'siteId' => $element->siteId,
+                'chunks' => $totalChunks,
+            ]);
+            return;
+        }
 
         foreach ($chunks as $index => $chunkText) {
             $embedding = $this->generateEmbedding($chunkText);
@@ -619,7 +634,8 @@ class EmbeddingService extends Component
                 $index,
                 $totalChunks,
                 $embedding,
-                $chunkText
+                $chunkText,
+                $hash,
             );
         }
 
@@ -643,20 +659,21 @@ class EmbeddingService extends Component
         int $totalChunks,
         array $vector,
         ?string $content = null,
+        ?string $contentHash = null,
     ): void {
-        $db = AiSearch::getInstance()->databaseService->getConnection();
-        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
+        $databaseService = AiSearch::getInstance()->databaseService;
+        $db = $databaseService->getConnection();
+        $table = $databaseService->getQualifiedTable();
 
         $vectorString = VectorFormatter::toPgVector($vector);
 
         try {
             $stmt = $db->prepare("
-                INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, content, \"dateUpdated\")
-                VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :content, CURRENT_TIMESTAMP)
+                INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, content, \"contentHash\", \"dateUpdated\")
+                VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :content, :contentHash, CURRENT_TIMESTAMP)
                 ON CONFLICT(\"elementId\", \"siteId\", \"chunkIndex\")
-                DO UPDATE SET vector = EXCLUDED.vector, content = EXCLUDED.content, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"dateUpdated\" = CURRENT_TIMESTAMP
+                DO UPDATE SET vector = EXCLUDED.vector, content = EXCLUDED.content, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"contentHash\" = EXCLUDED.\"contentHash\", \"dateUpdated\" = CURRENT_TIMESTAMP
             ");
-
             $stmt->execute([
                 ':elementId' => $elementId,
                 ':siteId' => $siteId,
@@ -664,6 +681,7 @@ class EmbeddingService extends Component
                 ':totalChunks' => $totalChunks,
                 ':vector' => $vectorString,
                 ':content' => $content,
+                ':contentHash' => $contentHash,
             ]);
         } catch (PDOException $e) {
             Logger::exception($e, 'storeVector', ['elementId' => $elementId, 'chunkIndex' => $chunkIndex]);

@@ -76,14 +76,16 @@ CREATE TABLE IF NOT EXISTS aisearch_vectors (
     "totalChunks" integer NOT NULL DEFAULT 1,
     vector        vector(1536) NOT NULL,
     content       text,
+    "contentHash" char(64),
     "dateCreated" timestamptz NOT NULL DEFAULT now(),
     "dateUpdated" timestamptz NOT NULL DEFAULT now(),
     UNIQUE ("elementId", "siteId", "chunkIndex")
 );
 
-CREATE INDEX IF NOT EXISTS aisearch_vectors_element_idx ON aisearch_vectors ("elementId");
-CREATE INDEX IF NOT EXISTS aisearch_vectors_site_idx    ON aisearch_vectors ("siteId");
-CREATE INDEX IF NOT EXISTS aisearch_vectors_chunk_idx   ON aisearch_vectors ("chunkIndex");
+CREATE INDEX IF NOT EXISTS aisearch_vectors_element_idx      ON aisearch_vectors ("elementId");
+CREATE INDEX IF NOT EXISTS aisearch_vectors_site_idx         ON aisearch_vectors ("siteId");
+CREATE INDEX IF NOT EXISTS aisearch_vectors_chunk_idx        ON aisearch_vectors ("chunkIndex");
+CREATE INDEX IF NOT EXISTS aisearch_vectors_element_site_idx ON aisearch_vectors ("elementId", "siteId");
 CREATE INDEX IF NOT EXISTS aisearch_vectors_content_gin ON aisearch_vectors
     USING gin (to_tsvector('simple', COALESCE(content, '')));
 CREATE INDEX IF NOT EXISTS aisearch_vectors_hnsw_cos    ON aisearch_vectors

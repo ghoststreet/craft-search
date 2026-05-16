@@ -8,7 +8,7 @@ use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\helpers\ErrorMapper;
 use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\jobs\IndexEntryJob;
+use ghoststreet\craftaisearch\jobs\SyncSearchIndexJob;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
@@ -24,10 +24,17 @@ class IndexController extends BaseApiController
     {
         $this->requireAdmin();
 
-        $request = Craft::$app->getRequest();
-        $tab = $request->getQueryParam('tab') ?: 'overview';
         $plugin = AiSearch::getInstance();
         $settings = $plugin->getSettings();
+
+        if (empty($settings->getOpenaiApiKey())
+            || empty($settings->getPostgresqlHost())
+            || empty($settings->getPostgresqlDatabase())) {
+            return $this->redirect('ai-search');
+        }
+
+        $request = Craft::$app->getRequest();
+        $tab = $request->getQueryParam('tab') ?: 'overview';
         $stats = $plugin->databaseService->getStatsSafe();
 
         $hasCredentials = !empty($settings->getPostgresqlHost())
@@ -112,15 +119,13 @@ class IndexController extends BaseApiController
         ]);
     }
 
-    public function actionWipeAndReindex(): Response
+    public function actionSync(): Response
     {
         $this->requireAdmin();
         $this->requirePostRequest();
 
         try {
-            Logger::info('Starting wipe-and-reindex operation');
-
-            AiSearch::getInstance()->databaseService->clearAllVectors();
+            Logger::info('Starting incremental sync');
 
             $entries = Entry::find()
                 ->siteId('*')
@@ -131,24 +136,31 @@ class IndexController extends BaseApiController
                 ->asArray()
                 ->all();
 
-            $queue = Craft::$app->getQueue();
+            $activeKeys = [];
             foreach ($entries as $entry) {
-                $queue->push(new IndexEntryJob([
-                    'entryId' => (int)$entry['id'],
+                $activeKeys[] = [
+                    'elementId' => (int)$entry['id'],
                     'siteId' => (int)$entry['siteId'],
-                ]));
+                ];
             }
 
-            $count = count($entries);
-            Logger::info('Queued entries for sync', ['count' => $count]);
+            $orphans = AiSearch::getInstance()->databaseService->deleteOrphanedVectors($activeKeys);
+
+            Craft::$app->getQueue()->push(new SyncSearchIndexJob());
+
+            $count = count($activeKeys);
+            Logger::info('Queued sync job', ['entries' => $count, 'orphansRemoved' => $orphans]);
 
             Craft::$app->getSession()->setFlash('ai-search-sync-started', true);
             Craft::$app->getSession()->setNotice(
-                Craft::t('ai-search', 'Search index cleared. {count} entries queued for reindexing.', ['count' => $count])
+                Craft::t('ai-search', 'Sync queued for {count} entries. {orphans} orphaned vectors removed.', [
+                    'count' => $count,
+                    'orphans' => $orphans,
+                ])
             );
         } catch (DatabaseException $e) {
             Craft::$app->getSession()->setError(
-                Craft::t('ai-search', 'Failed to start sync: {error}', ['error' => ErrorMapper::present($e, 'syncReindex')])
+                Craft::t('ai-search', 'Failed to start sync: {error}', ['error' => ErrorMapper::present($e, 'sync')])
             );
         }
 
@@ -162,17 +174,60 @@ class IndexController extends BaseApiController
 
         try {
             $stats = AiSearch::getInstance()->databaseService->getStats(false);
-            $queueTotal = Craft::$app->getQueue()->getTotalWaiting();
+            $queue = Craft::$app->getQueue();
+            $queueTotal = $queue->getTotalWaiting();
+
+            $sync = null;
+            foreach ($queue->getJobInfo(50) as $info) {
+                if (str_contains((string)$info['description'], 'Syncing AI search index')) {
+                    $sync = [
+                        'id' => $info['id'],
+                        'description' => $info['description'],
+                        'progress' => $info['progress'],
+                        'progressLabel' => $info['progressLabel'],
+                        'status' => $info['status'],
+                        'error' => $info['error'] ?? null,
+                    ];
+                    break;
+                }
+            }
 
             return $this->asJson([
                 'success' => true,
                 'entryCount' => $stats['entryCount'],
                 'chunkCount' => $stats['chunkCount'],
                 'queueRemaining' => $queueTotal,
+                'sync' => $sync,
             ]);
         } catch (\Throwable $e) {
             return $this->jsonError($e, 'getStats');
         }
+    }
+
+    public function actionCancelSync(): Response
+    {
+        $this->requireAdmin();
+        $this->requirePostRequest();
+        $this->requireAcceptsJson();
+
+        $queue = Craft::$app->getQueue();
+        $released = 0;
+
+        foreach ($queue->getJobInfo(100) as $info) {
+            if (!str_contains((string)$info['description'], 'Syncing AI search index')) {
+                continue;
+            }
+            try {
+                $queue->release((string)$info['id']);
+                $released++;
+            } catch (\Throwable $e) {
+                Logger::exception($e, 'cancelSync', ['jobId' => $info['id']]);
+            }
+        }
+
+        Logger::info('Cancelled sync', ['released' => $released]);
+
+        return $this->asJson(['success' => true, 'released' => $released]);
     }
 
     public function actionLegacyRedirect(): Response

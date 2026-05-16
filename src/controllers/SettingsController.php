@@ -3,6 +3,7 @@
 namespace ghoststreet\craftaisearch\controllers;
 
 use Craft;
+use craft\helpers\App;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\ErrorCode;
 use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
@@ -52,13 +53,32 @@ class SettingsController extends BaseApiController
     public function actionTestDatabaseConnection(): Response
     {
         $this->requireAdmin();
+        $this->requirePostRequest();
         $this->requireAcceptsJson();
+
+        $request = Craft::$app->getRequest();
+        $settings = AiSearch::getInstance()->getSettings();
+
+        $config = [
+            'host'     => App::parseEnv((string) $request->getBodyParam('host', '')) ?: null,
+            'port'     => (int) (App::parseEnv((string) $request->getBodyParam('port', '')) ?: 0),
+            'database' => App::parseEnv((string) $request->getBodyParam('database', '')) ?: null,
+            'user'     => App::parseEnv((string) $request->getBodyParam('user', '')) ?: null,
+            'password' => App::parseEnv((string) $request->getBodyParam('password', '')) ?: null,
+            'sslMode'  => App::parseEnv((string) $request->getBodyParam('sslMode', '')) ?: 'require',
+        ];
 
         try {
             $db = AiSearch::getInstance()->databaseService;
-            $db->getConnection();
+            $pdo = $db->connectWithConfig($config);
 
-            if (!$db->isSchemaInitialized()) {
+            $stmt = $pdo->prepare('SELECT 1 FROM pg_tables WHERE schemaname = :schema AND tablename = :table');
+            $stmt->execute([
+                ':schema' => $settings->vectorsSchemaName,
+                ':table'  => $settings->vectorsTableName,
+            ]);
+
+            if ($stmt->fetch() === false) {
                 return $this->asJson([
                     'success' => false,
                     'code' => ErrorCode::DATABASE_TABLE_MISSING->value,
@@ -75,10 +95,38 @@ class SettingsController extends BaseApiController
     public function actionTestApiKey(): Response
     {
         $this->requireAdmin();
+        $this->requirePostRequest();
         $this->requireAcceptsJson();
 
+        $raw = trim((string) Craft::$app->getRequest()->getBodyParam('apiKey', ''));
+
+        if ($raw === '') {
+            return $this->asJson([
+                'success' => false,
+                'message' => 'Enter an API key reference (e.g. $OPENAI_API_KEY) to test.',
+                'requestId' => $this->requestId,
+            ])->setStatusCode(400);
+        }
+
+        if (!str_starts_with($raw, '$')) {
+            return $this->asJson([
+                'success' => false,
+                'message' => 'Must be an environment variable reference (e.g. $OPENAI_API_KEY). Plain-text secrets are not allowed.',
+                'requestId' => $this->requestId,
+            ])->setStatusCode(400);
+        }
+
+        $resolved = App::parseEnv($raw);
+        if ($resolved === null || $resolved === '' || $resolved === $raw) {
+            return $this->asJson([
+                'success' => false,
+                'message' => 'Environment variable ' . $raw . ' is not set or is empty.',
+                'requestId' => $this->requestId,
+            ])->setStatusCode(400);
+        }
+
         try {
-            $client = AiSearch::getInstance()->openAIClientFactory->getClient();
+            $client = AiSearch::getInstance()->openAIClientFactory->buildClient($resolved);
             $client->models()->list();
             return $this->asJson(['success' => true, 'requestId' => $this->requestId]);
         } catch (\Throwable $e) {

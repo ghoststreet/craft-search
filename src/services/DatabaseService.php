@@ -37,7 +37,28 @@ class DatabaseService extends Component
             return $this->connection;
         }
 
-        $config = $this->resolveConnectionConfig();
+        $this->connection = $this->buildConnection($this->resolveConnectionConfig());
+
+        return $this->connection;
+    }
+
+    /**
+     * Build a one-off PDO connection from an explicit config array.
+     *
+     * Used by the settings "Test connection" action so admins can validate DB
+     * credentials before saving — bypasses the cached connection that reads
+     * from saved settings. Does not mutate $this->connection.
+     *
+     * @param array{host: ?string, port: int|string, database: ?string, user: ?string, password: ?string, sslMode: string} $config
+     * @throws DatabaseException
+     */
+    public function connectWithConfig(array $config): PDO
+    {
+        return $this->buildConnection($config, cache: false);
+    }
+
+    private function buildConnection(array $config, bool $cache = true): PDO
+    {
         $missingFields = $this->getMissingConfigFields($config);
 
         if (!empty($missingFields)) {
@@ -48,7 +69,7 @@ class DatabaseService extends Component
 
         $dsn = $this->buildDsn($config);
 
-        return $this->createConnection($dsn, $config['user'], $config['password']);
+        return $this->createConnection($dsn, $config['user'], $config['password'], $cache);
     }
 
     /**
@@ -204,17 +225,21 @@ class DatabaseService extends Component
     /**
      * @throws DatabaseException If connection fails
      */
-    private function createConnection(string $dsn, string $user, string $password): PDO
+    private function createConnection(string $dsn, string $user, string $password, bool $cache = true): PDO
     {
         try {
-            $this->connection = new PDO($dsn, $user, $password);
-            $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-            $this->connection->exec('SET hnsw.ef_search = 20');
+            $pdo = new PDO($dsn, $user, $password);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            $pdo->exec('SET hnsw.ef_search = 20');
 
             Logger::info('Successfully connected to PostgreSQL database');
 
-            return $this->connection;
+            if ($cache) {
+                $this->connection = $pdo;
+            }
+
+            return $pdo;
         } catch (PDOException $e) {
             Logger::exception($e, 'getConnection');
             throw DatabaseException::connectionError($e->getMessage(), $e);
@@ -281,6 +306,97 @@ class DatabaseService extends Component
             return true;
         } catch (DatabaseException) {
             return false;
+        }
+    }
+
+    /**
+     * Return the stored content hash and chunk count for an entry.
+     *
+     * The hash is written identically to every chunk row of an entry, so
+     * reading the MAX is sufficient. The chunk count lets callers detect
+     * partial-index states (hash matches but rows are missing).
+     *
+     * @return array{hash: ?string, chunkCount: int}
+     * @throws DatabaseException
+     */
+    public function getStoredEntryFingerprint(int $elementId, int $siteId): array
+    {
+        $db = $this->getConnection();
+        $table = $this->getQualifiedTable();
+
+        try {
+            $stmt = $db->prepare("
+                SELECT MAX(\"contentHash\") AS \"contentHash\", COUNT(*) AS \"chunkCount\"
+                FROM {$table}
+                WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId
+            ");
+            $stmt->execute([':elementId' => $elementId, ':siteId' => $siteId]);
+            $row = $stmt->fetch();
+
+            return [
+                'hash' => $row['contentHash'] ?? null,
+                'chunkCount' => (int)($row['chunkCount'] ?? 0),
+            ];
+        } catch (PDOException $e) {
+            Logger::exception($e, 'getStoredEntryFingerprint');
+            throw DatabaseException::queryFailed('getStoredEntryFingerprint', $e);
+        }
+    }
+
+    /**
+     * Delete vectors for entries no longer present in the supplied active set.
+     *
+     * @param list<array{elementId: int, siteId: int}> $activeKeys
+     * @return int Number of deleted rows
+     * @throws DatabaseException
+     */
+    public function deleteOrphanedVectors(array $activeKeys): int
+    {
+        $db = $this->getConnection();
+        $table = $this->getQualifiedTable();
+
+        try {
+            $stmt = $db->query("SELECT DISTINCT \"elementId\", \"siteId\" FROM {$table}");
+            $indexed = $stmt->fetchAll();
+
+            $activeLookup = [];
+            foreach ($activeKeys as $key) {
+                $activeLookup[$key['elementId'] . ':' . $key['siteId']] = true;
+            }
+
+            $orphans = [];
+            foreach ($indexed as $row) {
+                $elementId = (int)$row['elementId'];
+                $siteId = (int)$row['siteId'];
+                if (!isset($activeLookup[$elementId . ':' . $siteId])) {
+                    $orphans[] = ['elementId' => $elementId, 'siteId' => $siteId];
+                }
+            }
+
+            if (empty($orphans)) {
+                return 0;
+            }
+
+            $deleted = 0;
+            foreach (array_chunk($orphans, 500) as $batch) {
+                $placeholders = [];
+                $params = [];
+                foreach ($batch as $i => $key) {
+                    $placeholders[] = "(:e{$i}, :s{$i})";
+                    $params[":e{$i}"] = $key['elementId'];
+                    $params[":s{$i}"] = $key['siteId'];
+                }
+                $sql = "DELETE FROM {$table} WHERE (\"elementId\", \"siteId\") IN (" . implode(', ', $placeholders) . ')';
+                $del = $db->prepare($sql);
+                $del->execute($params);
+                $deleted += $del->rowCount();
+            }
+
+            Logger::info('Deleted orphaned vectors', ['entries' => count($orphans), 'rows' => $deleted]);
+            return $deleted;
+        } catch (PDOException $e) {
+            Logger::exception($e, 'deleteOrphanedVectors');
+            throw DatabaseException::queryFailed('deleteOrphanedVectors', $e);
         }
     }
 

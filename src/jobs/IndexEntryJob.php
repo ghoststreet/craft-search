@@ -2,7 +2,9 @@
 
 namespace ghoststreet\craftaisearch\jobs;
 
+use Craft;
 use craft\elements\Entry;
+use craft\i18n\Translation;
 use craft\queue\BaseJob;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\SearchException;
@@ -52,6 +54,19 @@ class IndexEntryJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        return "Indexing entry #{$this->entryId} for AI search";
+        $entry = Entry::find()
+            ->id($this->entryId)
+            ->siteId($this->siteId)
+            ->status(null)
+            ->one();
+
+        $title = $entry?->title ?: "#{$this->entryId}";
+        $site = Craft::$app->getSites()->getSiteById($this->siteId);
+        $siteName = $site?->name ?? "site #{$this->siteId}";
+
+        return Translation::prep('ai-search', 'AI search: indexing “{title}” ({site})', [
+            'title' => $title,
+            'site' => $siteName,
+        ]);
     }
 }

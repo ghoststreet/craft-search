@@ -19,6 +19,10 @@ class InsightsController extends Controller
     {
         $this->requireAdmin();
 
+        if (AiSearch::getInstance()->historyService->detailsCount() === 0) {
+            return $this->redirect('ai-search');
+        }
+
         $request = Craft::$app->getRequest();
         $tab = $request->getParam('tab') ?: 'queries';
         $days = $request->getParam('days');

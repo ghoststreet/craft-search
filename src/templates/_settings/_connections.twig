@@ -10,11 +10,12 @@
         id: 'openaiApiKey', name: 'openaiApiKey',
         value: settings.openaiApiKey, suggestEnvVars: true, required: true,
         errors: settings.getErrors('openaiApiKey'),
+        inputAttributes: { 'data-craftsearch-target': 'openai-api-key' },
     }) }}
 {% endnamespace %}
 
 <div class="buttons settings__buttons">
-    <button type="button" class="btn" data-craftsearch-control="test-api-key">Test API key</button>
+    <button type="button" class="btn disabled" data-craftsearch-control="test-api-key" disabled>Test API key</button>
     <span class="settings__test-result" data-craftsearch-target="test-api-key-result"></span>
 </div>
 
@@ -24,11 +25,11 @@
 <p class="light">PostgreSQL with pgvector. The plugin does not create the schema — see the <a href="https://github.com/ghost-street/craft-ai-search#database-setup-required-admin-owned" target="_blank">README</a>.</p>
 
 {% namespace 'settings' %}
-    {{ forms.autosuggestField({ label: 'Host', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, required: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost') }) }}
-    {{ forms.autosuggestField({ label: 'Port', id: 'postgresqlPort', name: 'postgresqlPort', value: settings.postgresqlPort, suggestEnvVars: true, required: true, placeholder: '5432', errors: settings.getErrors('postgresqlPort') }) }}
-    {{ forms.autosuggestField({ label: 'Database', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase') }) }}
-    {{ forms.autosuggestField({ label: 'User', id: 'postgresqlUser', name: 'postgresqlUser', value: settings.postgresqlUser, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlUser') }) }}
-    {{ forms.autosuggestField({ label: 'Password', id: 'postgresqlPassword', name: 'postgresqlPassword', value: settings.postgresqlPassword, suggestEnvVars: true, required: true, placeholder: '$SUPABASE_DB_PASSWORD', errors: settings.getErrors('postgresqlPassword') }) }}
+    {{ forms.autosuggestField({ label: 'Host', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, required: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost'), inputAttributes: { 'data-craftsearch-target': 'db-host' } }) }}
+    {{ forms.autosuggestField({ label: 'Port', id: 'postgresqlPort', name: 'postgresqlPort', value: settings.postgresqlPort, suggestEnvVars: true, required: true, placeholder: '5432', errors: settings.getErrors('postgresqlPort'), inputAttributes: { 'data-craftsearch-target': 'db-port' } }) }}
+    {{ forms.autosuggestField({ label: 'Database', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase'), inputAttributes: { 'data-craftsearch-target': 'db-database' } }) }}
+    {{ forms.autosuggestField({ label: 'User', id: 'postgresqlUser', name: 'postgresqlUser', value: settings.postgresqlUser, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlUser'), inputAttributes: { 'data-craftsearch-target': 'db-user' } }) }}
+    {{ forms.autosuggestField({ label: 'Password', id: 'postgresqlPassword', name: 'postgresqlPassword', value: settings.postgresqlPassword, suggestEnvVars: true, required: true, placeholder: '$SUPABASE_DB_PASSWORD', errors: settings.getErrors('postgresqlPassword'), inputAttributes: { 'data-craftsearch-target': 'db-password' } }) }}
     {{ forms.selectField({
         label: 'SSL mode', id: 'postgresqlSslMode', name: 'postgresqlSslMode', value: settings.postgresqlSslMode,
         options: [
@@ -40,10 +41,11 @@
             { label: 'Verify full', value: 'verify-full' },
         ],
         required: true, errors: settings.getErrors('postgresqlSslMode'),
+        inputAttributes: { 'data-craftsearch-target': 'db-ssl-mode' },
     }) }}
 {% endnamespace %}
 
 <div class="buttons settings__db-test">
-    <button type="button" class="btn" data-craftsearch-control="test-db">Test connection</button>
+    <button type="button" class="btn disabled" data-craftsearch-control="test-db" disabled>Test connection</button>
     <span class="settings__test-result" data-craftsearch-target="test-db-result"></span>
 </div>

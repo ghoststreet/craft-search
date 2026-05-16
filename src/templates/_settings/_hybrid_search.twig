@@ -13,6 +13,7 @@
             { label: 'text-embedding-3-large', value: 'text-embedding-3-large' },
         ],
         required: true, errors: settings.getErrors('hybridEmbeddingModel'),
+        inputAttributes: { 'data-craftsearch-target': 'hybrid-embedding-model' },
     }) }}
 {% endnamespace %}
 <p class="warning with-icon settings__reindex-warning hidden" data-craftsearch-target="hybrid-embedding-warning">
@@ -39,6 +40,7 @@
         id: 'rrfSemanticWeight', name: 'rrfSemanticWeight',
         value: settings.rrfSemanticWeight, type: 'number', step: '0.1', min: '0', max: '1',
         required: true, errors: settings.getErrors('rrfSemanticWeight'),
+        inputAttributes: { 'data-craftsearch-target': 'rrf-semantic-weight' },
     }) }}
 
     {{ forms.textField({
@@ -47,6 +49,7 @@
         id: 'rrfBm25Weight', name: 'rrfBm25Weight',
         value: settings.rrfBm25Weight, type: 'number', step: '0.1', min: '0', max: '1',
         required: true, errors: settings.getErrors('rrfBm25Weight'),
+        inputAttributes: { 'data-craftsearch-target': 'rrf-bm25-weight' },
     }) }}
 
     <p class="settings__weight-sum" data-craftsearch-target="weight-sum-hint"></p>

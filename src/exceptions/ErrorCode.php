@@ -8,6 +8,7 @@ enum ErrorCode: string
     case SEARCH_RAG_FAILED            = 'SEARCH_RAG_FAILED';
     case SEARCH_VECTOR_QUERY_FAILED   = 'SEARCH_VECTOR_QUERY_FAILED';
     case SEARCH_ENTRY_NOT_FOUND       = 'SEARCH_ENTRY_NOT_FOUND';
+    case SEARCH_ENTRY_MISSING_URL     = 'SEARCH_ENTRY_MISSING_URL';
     case SEARCH_VALIDATION_FAILED     = 'SEARCH_VALIDATION_FAILED';
 
     case EMBEDDING_EMPTY_TEXT         = 'EMBEDDING_EMPTY_TEXT';
@@ -35,6 +36,7 @@ enum ErrorCode: string
         return match ($this) {
             self::SEARCH_VALIDATION_FAILED => 400,
             self::SEARCH_ENTRY_NOT_FOUND => 404,
+            self::SEARCH_ENTRY_MISSING_URL => 422,
             self::EMBEDDING_RATE_LIMITED,
             self::EMBEDDING_QUOTA_EXCEEDED,
             self::RATE_LIMIT_REQUESTS,
@@ -56,6 +58,7 @@ enum ErrorCode: string
             self::SEARCH_RAG_FAILED           => 'AI summary failed. Please try again.',
             self::SEARCH_VECTOR_QUERY_FAILED  => 'Vector similarity search failed.',
             self::SEARCH_ENTRY_NOT_FOUND      => 'The requested entry could not be found.',
+            self::SEARCH_ENTRY_MISSING_URL    => 'Entry has no URL on this site and cannot be indexed.',
             self::SEARCH_VALIDATION_FAILED    => 'Your search request was invalid.',
             self::EMBEDDING_EMPTY_TEXT        => 'Cannot generate an embedding for empty text.',
             self::EMBEDDING_RATE_LIMITED      => 'OpenAI rate limit reached. Please retry shortly.',

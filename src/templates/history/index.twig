@@ -55,7 +55,7 @@
         {{ f.submitButton() }}
         <div class="field filter-bar__spacer">
             {% if currentUser.admin %}
-                <form method="post" action="" class="filter-bar__inline-form" onsubmit="return confirm('This will permanently delete all stored queries and result data. Token/cost statistics will be preserved. Continue?');">
+                <form method="post" action="" class="filter-bar__inline-form" data-craftsearch-confirm="This will permanently delete all stored queries and result data. Token/cost statistics will be preserved. Continue?">
                     {{ csrfInput() }}
                     {{ actionInput('ai-search/history/clear') }}
                     <button type="submit" class="btn submit"{% if detailsCount == 0 %} disabled{% endif %}>

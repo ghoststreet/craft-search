@@ -43,6 +43,18 @@ class OpenAIClientFactory extends Component
             throw ConfigurationException::missingApiKey('OpenAI');
         }
 
+        $this->client = $this->buildClient($apiKey);
+
+        return $this->client;
+    }
+
+    /**
+     * Build a one-off OpenAI client for the given resolved API key.
+     * Used by the settings "Test API key" action so admins can validate a key
+     * before saving — bypasses the cached client which reads from saved settings.
+     */
+    public function buildClient(string $apiKey): Client
+    {
         $http = new GuzzleClient([
             'connect_timeout' => self::CONNECT_TIMEOUT,
             'timeout' => self::TOTAL_TIMEOUT,
@@ -50,11 +62,9 @@ class OpenAIClientFactory extends Component
             'http_errors' => false,
         ]);
 
-        $this->client = OpenAI::factory()
+        return OpenAI::factory()
             ->withApiKey($apiKey)
             ->withHttpClient($http)
             ->make();
-
-        return $this->client;
     }
 }

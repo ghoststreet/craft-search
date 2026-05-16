@@ -96,7 +96,7 @@
         </table>
 
         {% if currentUser.admin %}
-            <form method="post" class="insights-index__clear-form" onsubmit="return confirm('Permanently delete all stored queries and result data? Token/cost statistics are preserved.');">
+            <form method="post" class="insights-index__clear-form" data-craftsearch-confirm="Permanently delete all stored queries and result data? Token/cost statistics are preserved.">
                 {{ csrfInput() }}
                 {{ actionInput('ai-search/insights/clear') }}
                 <button type="submit" class="btn"{% if detailsCount == 0 %} disabled{% endif %}>Clear history ({{ detailsCount }})</button>

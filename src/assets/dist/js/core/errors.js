@@ -28,8 +28,13 @@
 
     ns.core.errors = {
         messageFor: function (err) {
-            var code = (err && err.code) || 'UNKNOWN';
-            var msg = MESSAGES[code] || MESSAGES.UNKNOWN;
+            var msg;
+            if (err && typeof err.message === 'string' && err.message !== '') {
+                msg = err.message;
+            } else {
+                var code = (err && err.code) || 'UNKNOWN';
+                msg = MESSAGES[code] || MESSAGES.UNKNOWN;
+            }
             if (err && err.requestId) {
                 msg += ' (id: ' + err.requestId + ')';
             }

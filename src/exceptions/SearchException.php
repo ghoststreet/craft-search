@@ -37,4 +37,11 @@ class SearchException extends AiSearchException
         $e->errorCode = ErrorCode::SEARCH_ENTRY_NOT_FOUND;
         return $e;
     }
+
+    public static function indexEntryMissingUrl(int $entryId, int $siteId): self
+    {
+        $e = new self("Entry #{$entryId} on site #{$siteId} has no URL and cannot be indexed");
+        $e->errorCode = ErrorCode::SEARCH_ENTRY_MISSING_URL;
+        return $e;
+    }
 }

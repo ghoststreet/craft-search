@@ -16,10 +16,12 @@ use craft\web\UrlManager;
 use craft\web\View;
 use ghoststreet\craftaisearch\assets\CraftSearchAsset;
 use ghoststreet\craftaisearch\assets\DashboardAsset;
+use ghoststreet\craftaisearch\assets\DataSyncAsset;
 use ghoststreet\craftaisearch\assets\DebugAsset;
 use ghoststreet\craftaisearch\assets\HistoryAsset;
 use ghoststreet\craftaisearch\assets\IndexMgmtAsset;
 use ghoststreet\craftaisearch\assets\InsightsAsset;
+use ghoststreet\craftaisearch\assets\SettingsAsset;
 use ghoststreet\craftaisearch\jobs\DeleteEntryJob;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use ghoststreet\craftaisearch\models\Settings;
@@ -147,9 +149,18 @@ class AiSearch extends Plugin
 
         $subNav = [];
 
+        $settings = $this->getSettings();
+        $connectionsConfigured = !empty($settings->getOpenaiApiKey())
+            && !empty($settings->getPostgresqlHost())
+            && !empty($settings->getPostgresqlDatabase());
+
         $subNav['dashboard'] = ['label' => 'Dashboard', 'url' => 'ai-search'];
-        $subNav['insights'] = ['label' => 'Insights', 'url' => 'ai-search/insights'];
-        $subNav['index'] = ['label' => 'Index', 'url' => 'ai-search/index'];
+        if ($this->historyService->detailsCount() > 0) {
+            $subNav['insights'] = ['label' => 'Insights', 'url' => 'ai-search/insights'];
+        }
+        if ($connectionsConfigured) {
+            $subNav['index'] = ['label' => 'Index', 'url' => 'ai-search/index'];
+        }
 
         if (Craft::$app->getConfig()->general->allowAdminChanges && Craft::$app->user->getIsAdmin()) {
             $subNav['settings'] = ['label' => 'Settings', 'url' => 'ai-search/settings'];
@@ -235,7 +246,8 @@ class AiSearch extends Plugin
                 // Index management (consolidated from data-sync + debug)
                 $event->rules['ai-search/index'] = 'ai-search/index/index';
                 $event->rules['ai-search/index/entry'] = 'ai-search/index/entry';
-                $event->rules['POST ai-search/index/wipe-and-reindex'] = 'ai-search/index/wipe-and-reindex';
+                $event->rules['POST ai-search/index/sync'] = 'ai-search/index/sync';
+                $event->rules['POST ai-search/index/cancel-sync'] = 'ai-search/index/cancel-sync';
                 $event->rules['POST ai-search/index/get-stats'] = 'ai-search/index/get-stats';
 
                 // Insights (consolidated from history + keywords)
@@ -289,6 +301,8 @@ class AiSearch extends Plugin
                     'ai-search/insights'   => InsightsAsset::class,
                     'ai-search/debug'      => DebugAsset::class,
                     'ai-search/history'    => HistoryAsset::class,
+                    'ai-search/settings'   => SettingsAsset::class,
+                    'ai-search/data-sync'  => DataSyncAsset::class,
                     'ai-search/index'      => DashboardAsset::class,
                 ];
 

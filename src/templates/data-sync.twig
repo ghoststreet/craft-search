@@ -92,7 +92,7 @@
         </table>
     {% endif %}
 
-    <div class="sync-progress" data-craftsearch-target="reindex-progress" hidden>
+    <div class="sync-progress" data-craftsearch-target="reindex-progress"{% if syncStarted ?? false %} data-craftsearch-sync-started="1"{% endif %} hidden>
         <div class="pane">
             <p><strong>Syncing in progress...</strong></p>
             <p class="light">Entries indexed: <span data-craftsearch-target="progress-entries">0</span> | Chunks: <span data-craftsearch-target="progress-chunks">0</span> | Queue remaining: <span data-craftsearch-target="progress-queue">0</span></p>
@@ -118,78 +118,11 @@
             <button type="submit"
                     class="btn submit"
                     data-craftsearch-control="reindex-btn"
-                    {% if not setup.ready %}disabled title="Complete the setup steps above before syncing"{% endif %}
-                    onclick="return confirm('Are you sure you want to sync the entire search index? Every entry will be re-indexed.')">
+                    data-craftsearch-confirm="Are you sure you want to sync the entire search index? Every entry will be re-indexed."
+                    {% if not setup.ready %}disabled title="Complete the setup steps above before syncing"{% endif %}>
                 Sync Entire Index
             </button>
         </div>
     </form>
 {% endblock %}
 
-{% if setup.ready %}
-{% js %}
-(function() {
-    var DOM = window.CraftSearch.core.DOM;
-
-    function startPolling() {
-        var progress = DOM.find('reindex-progress');
-        var btn = DOM.findControl('reindex-btn');
-        if (progress) progress.hidden = false;
-        if (btn) btn.disabled = true;
-
-        var peakEntries = 0;
-        var peakChunks = 0;
-
-        var interval = setInterval(function() {
-            Craft.sendActionRequest('POST', 'ai-search/data-sync/get-stats')
-                .then(function(response) {
-                    var data = response.data;
-                    if (!data.success) return;
-
-                    var entries = DOM.find('progress-entries');
-                    var chunks = DOM.find('progress-chunks');
-                    var queue = DOM.find('progress-queue');
-                    var statEntries = DOM.find('stat-entries');
-                    var statChunks = DOM.find('stat-chunks');
-
-                    if (data.queueRemaining === 0) {
-                        clearInterval(interval);
-                        if (entries) entries.textContent = data.entryCount.toLocaleString();
-                        if (chunks) chunks.textContent = data.chunkCount.toLocaleString();
-                        if (statEntries) statEntries.textContent = data.entryCount.toLocaleString();
-                        if (statChunks) statChunks.textContent = data.chunkCount.toLocaleString();
-                        if (progress) {
-                            progress.innerHTML = '<div class="pane"><p><strong>Sync complete.</strong></p></div>';
-                        }
-                        if (btn) btn.disabled = false;
-                        return;
-                    }
-
-                    peakEntries = Math.max(peakEntries, data.entryCount);
-                    peakChunks = Math.max(peakChunks, data.chunkCount);
-
-                    if (entries) entries.textContent = peakEntries.toLocaleString();
-                    if (chunks) chunks.textContent = peakChunks.toLocaleString();
-                    if (queue) queue.textContent = data.queueRemaining.toLocaleString();
-                    if (statEntries) statEntries.textContent = peakEntries.toLocaleString();
-                    if (statChunks) statChunks.textContent = peakChunks.toLocaleString();
-                })
-                .catch(function() {});
-        }, 3000);
-    }
-
-    // Start polling if sync was just triggered or if there are queued jobs
-    {% if syncStarted %}
-        startPolling();
-    {% else %}
-        Craft.sendActionRequest('POST', 'ai-search/data-sync/get-stats')
-            .then(function(response) {
-                if (response.data.success && response.data.queueRemaining > 0) {
-                    startPolling();
-                }
-            })
-            .catch(function() {});
-    {% endif %}
-})();
-{% endjs %}
-{% endif %}

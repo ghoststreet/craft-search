@@ -40,7 +40,8 @@ class IndexingDebugService extends Component
 
         $query = Entry::find()
             ->siteId($siteId)
-            ->status(null)
+            ->status(Entry::STATUS_ENABLED)
+            ->uri(':notempty:')
             ->drafts(false)
             ->revisions(false);
 
@@ -121,7 +122,8 @@ class IndexingDebugService extends Component
         foreach (Craft::$app->getSites()->getAllSites() as $site) {
             $entries = Entry::find()
                 ->siteId($site->id)
-                ->status(null)
+                ->status(Entry::STATUS_ENABLED)
+                ->uri(':notempty:')
                 ->drafts(false)
                 ->revisions(false)
                 ->limit(null)
