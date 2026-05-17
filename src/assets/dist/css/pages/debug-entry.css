@@ -1,1 +1,205 @@
+/* === Summary stat strip ============================================== */
+.debug-entry__summary {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 0 0 18px;
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--medium-border-radius, 5px);
+    background: var(--white, #fff);
+    overflow: hidden;
+}
+.debug-entry__stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 14px 18px;
+    border-right: 1px solid var(--hairline-color);
+    min-height: 72px;
+}
+.debug-entry__stat:last-child { border-right: none; }
+.debug-entry__stat-label {
+    color: var(--medium-text-color);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+}
+.debug-entry__stat-value {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--text-color);
+}
+.debug-entry__stat-value--small { font-size: 13px; font-weight: 500; }
+.debug-entry__stat-sub { color: var(--medium-text-color); font-weight: 400; font-size: 14px; }
+
+@media (max-width: 900px) {
+    .debug-entry__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .debug-entry__stat { border-right: none; border-bottom: 1px solid var(--hairline-color); }
+    .debug-entry__stat:nth-child(odd) { border-right: 1px solid var(--hairline-color); }
+    .debug-entry__stat:last-child { border-bottom: none; }
+}
+
+/* === Panes =========================================================== */
 .debug-entry__chunks { margin-top: 24px; }
+
+.debug-entry__fields > .pane-header,
+.debug-entry__chunks > .pane-header {
+    display: flex;
+    align-items: center;
+}
+.debug-entry__fields > .pane-header h2,
+.debug-entry__chunks > .pane-header h2 { margin: 0; }
+
+/* === Filter chips ==================================================== */
+.field-card-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 14px;
+}
+.field-card-filters .btn.is-active {
+    background: var(--gray-200, var(--hairline-color));
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+/* Filter modes — hide cards that don't match */
+.field-card-list[data-filter-mode="indexed"] > .field-card--skipped { display: none; }
+.field-card-list[data-filter-mode="skipped"] > .field-card--indexed { display: none; }
+
+/* === Field card ====================================================== */
+.field-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.field-card {
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--medium-border-radius, 5px);
+    background: var(--white, #fff);
+    overflow: hidden;
+}
+
+.field-card__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    min-height: 40px;
+}
+
+.field-card--indexed .field-card__head {
+    border-bottom: 1px solid var(--hairline-color);
+}
+.field-card--skipped .field-card__head {
+    background: var(--gray-050, transparent);
+}
+
+.field-card__handle {
+    font-family: var(--monospace-font, ui-monospace, monospace);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+.field-card__type {
+    color: var(--medium-text-color);
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--gray-050);
+}
+.field-card__spacer { flex: 1; }
+
+.field-card__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.field-card__tag--success {
+    color: hsl(var(--green-600-hsl, 142, 71%, 32%));
+    background: hsl(var(--green-050-hsl, 138, 76%, 96%));
+}
+.field-card__tag--muted {
+    color: var(--medium-text-color);
+    background: var(--gray-100, var(--hairline-color));
+}
+
+/* === Body — extracted text =========================================== */
+.field-card__body {
+    padding: 12px 14px;
+    background: var(--gray-050, transparent);
+}
+.field-card__text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-color);
+    max-height: 14em;
+    overflow: auto;
+}
+
+/* === Matrix block nesting ============================================ */
+.field-card__blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--gray-050, transparent);
+}
+
+.field-card__block {
+    border: 1px solid var(--hairline-color);
+    border-left: 3px solid var(--gray-300, var(--medium-text-color));
+    border-radius: var(--small-border-radius, 4px);
+    background: var(--white, #fff);
+    padding: 10px 12px;
+}
+
+.field-card__block-title {
+    margin: 0 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--medium-text-color);
+    font-weight: 700;
+}
+.field-card__block-handle {
+    color: var(--text-color);
+    font-family: var(--monospace-font, ui-monospace, monospace);
+    font-size: 12px;
+    margin-right: 4px;
+}
+
+.field-card__children {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Nested cards: compact */
+.field-card--depth-1 .field-card__head { padding: 8px 10px; min-height: 32px; }
+.field-card--depth-1 .field-card__handle { font-size: 12px; }
+.field-card--depth-1 .field-card__type { font-size: 11px; padding: 1px 6px; }
+.field-card--depth-1 .field-card__body { padding: 10px 12px; }
+.field-card--depth-1 .field-card__text { font-size: 12px; max-height: 12em; }
+
+/* When filtering, also hide nested skipped/indexed cards consistently */
+.field-card-list[data-filter-mode="indexed"] .field-card--skipped { display: none; }
+.field-card-list[data-filter-mode="skipped"] .field-card--indexed { display: none; }

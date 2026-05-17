@@ -22,9 +22,11 @@ use ghoststreet\craftaisearch\helpers\Logger;
  */
 class SyncSearchIndexJob extends BaseBatchedJob
 {
+    public ?int $siteId = null;
+
     protected function loadData(): Batchable
     {
-        return new EntrySiteList();
+        return new EntrySiteList($this->siteId);
     }
 
     protected function processItem(mixed $item): void
@@ -53,6 +55,14 @@ class SyncSearchIndexJob extends BaseBatchedJob
 
     protected function defaultDescription(): ?string
     {
+        if ($this->siteId !== null) {
+            $site = Craft::$app->getSites()->getSiteById($this->siteId);
+            $label = $site?->name ?: $site?->handle ?: ('site ' . $this->siteId);
+            return Translation::prep('ai-search', 'Syncing AI search index [site:{id}] — {name}', [
+                'id' => $this->siteId,
+                'name' => $label,
+            ]);
+        }
         return Translation::prep('ai-search', 'Syncing AI search index');
     }
 }

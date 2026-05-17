@@ -42,6 +42,7 @@ class CraftSearchAsset extends AssetBundle
             'css/components/kpi-grid.css',
             'css/components/mini-table.css',
             'css/components/onboarding-list.css',
+            'css/components/overview-cards.css',
             'css/components/pagination.css',
             'css/components/recommendation-list.css',
             'css/components/search-toolbar.css',

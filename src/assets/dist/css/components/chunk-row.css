@@ -24,6 +24,23 @@
 }
 .chunk-row__spacer { flex: 1; }
 
+.chunk-row__token-bar {
+    flex: 1;
+    min-width: 60px;
+    max-width: 180px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--gray-100, var(--hairline-color));
+    overflow: hidden;
+}
+.chunk-row__token-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--medium-text-color);
+    border-radius: 2px;
+}
+
+
 .chunk-row__details > summary {
     cursor: pointer;
     padding: 10px 14px;

@@ -14,6 +14,10 @@ class EntrySiteList implements Batchable
 {
     private ?int $cachedCount = null;
 
+    public function __construct(private readonly ?int $siteId = null)
+    {
+    }
+
     public function count(): int
     {
         return $this->cachedCount ??= (int)$this->baseQuery()->count();
@@ -31,7 +35,7 @@ class EntrySiteList implements Batchable
     private function baseQuery()
     {
         return Entry::find()
-            ->siteId('*')
+            ->siteId($this->siteId ?? '*')
             ->unique(false)
             ->status(Entry::STATUS_ENABLED)
             ->uri(':notempty:')

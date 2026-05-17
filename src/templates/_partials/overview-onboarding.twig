@@ -1,0 +1,31 @@
+{#
+    Onboarding checklist shown on the Overview tab when the plugin is not yet
+    fully configured (credentials, schema, or OpenAI key missing).
+
+    Params:
+        setup  object  { credentials, connection, schema, openaiKey, error }
+#}
+<h2>Finish setup</h2>
+<p class="light">Each step links to where it can be fixed.</p>
+<table class="data fullwidth collapsible">
+    <tbody>
+        {% set steps = [
+            { done: setup.credentials, label: 'Configure PostgreSQL credentials', hint: setup.credentials ? null : 'Host, database, user, and password are all required.' },
+            { done: setup.connection, label: 'Connect to the vector database', hint: (setup.credentials and not setup.connection) ? setup.error : null },
+            { done: setup.schema, label: 'Initialize the vector schema', hint: (setup.connection and not setup.schema) ? 'The vectors table was not found. Run the setup SQL from the README.' : null },
+            { done: setup.openaiKey, label: 'Add the OpenAI API key', hint: setup.openaiKey ? null : 'Required to generate embeddings during indexing.' },
+        ] %}
+        {% for step in steps %}
+            <tr>
+                <td class="thin centeralign">
+                    {% if step.done %}<span class="success" data-icon="check"></span>
+                    {% else %}<span class="error" data-icon="error"></span>{% endif %}
+                </td>
+                <td>
+                    <a href="{{ cpUrl('ai-search/settings') }}">{{ step.label }}</a>
+                    {% if step.hint %}<div class="light smalltext">{{ step.hint }}</div>{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

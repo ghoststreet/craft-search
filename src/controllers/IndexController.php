@@ -62,6 +62,10 @@ class IndexController extends BaseApiController
             'selectedSubnavItem' => 'index',
         ];
 
+        if ($tab === 'overview') {
+            $data['overview'] = $this->buildOverviewData($setup, $stats);
+        }
+
         if ($tab === 'entries') {
             $filters = [
                 'section' => $request->getQueryParam('section') ?: null,
@@ -125,17 +129,22 @@ class IndexController extends BaseApiController
         $this->requireAdmin();
         $this->requirePostRequest();
 
-        try {
-            Logger::info('Starting incremental sync');
+        $request = Craft::$app->getRequest();
+        $rawSiteId = $request->getBodyParam('siteId');
+        $siteId = ($rawSiteId !== null && $rawSiteId !== '') ? (int)$rawSiteId : null;
 
-            $entries = Entry::find()
-                ->siteId('*')
+        try {
+            Logger::info('Starting incremental sync', ['siteId' => $siteId]);
+
+            $query = Entry::find()
+                ->siteId($siteId ?? '*')
                 ->unique(false)
                 ->status(Entry::STATUS_ENABLED)
                 ->uri(':notempty:')
                 ->select(['elements.id', 'elements_sites.siteId'])
-                ->asArray()
-                ->all();
+                ->asArray();
+
+            $entries = $query->all();
 
             $activeKeys = [];
             foreach ($entries as $entry) {
@@ -145,12 +154,18 @@ class IndexController extends BaseApiController
                 ];
             }
 
-            $orphans = AiSearch::getInstance()->databaseService->deleteOrphanedVectors($activeKeys);
+            $orphans = AiSearch::getInstance()->databaseService->deleteOrphanedVectors($activeKeys, $siteId);
 
-            Craft::$app->getQueue()->push(new SyncSearchIndexJob());
+            if ($siteId !== null) {
+                Craft::$app->getQueue()->push(new SyncSearchIndexJob(['siteId' => $siteId]));
+            } else {
+                foreach (Craft::$app->getSites()->getAllSites() as $site) {
+                    Craft::$app->getQueue()->push(new SyncSearchIndexJob(['siteId' => (int)$site->id]));
+                }
+            }
 
             $count = count($activeKeys);
-            Logger::info('Queued sync job', ['entries' => $count, 'orphansRemoved' => $orphans]);
+            Logger::info('Queued sync job', ['entries' => $count, 'orphansRemoved' => $orphans, 'siteId' => $siteId]);
 
             Craft::$app->getSession()->setFlash('ai-search-sync-started', true);
             Craft::$app->getSession()->setNotice(
@@ -174,22 +189,36 @@ class IndexController extends BaseApiController
         $this->requireAcceptsJson();
 
         try {
-            $stats = AiSearch::getInstance()->databaseService->getStats(false);
+            $plugin = AiSearch::getInstance();
+            $stats = $plugin->databaseService->getStats(false);
+            $perSite = $plugin->databaseService->getStatsPerSite();
             $queue = Craft::$app->getQueue();
             $queueTotal = $queue->getTotalWaiting();
 
-            $sync = null;
-            foreach ($queue->getJobInfo(50) as $info) {
-                if (str_contains((string)$info['description'], 'Syncing AI search index')) {
-                    $sync = [
-                        'id' => $info['id'],
-                        'description' => $info['description'],
-                        'progress' => $info['progress'],
-                        'progressLabel' => $info['progressLabel'],
-                        'status' => $info['status'],
-                        'error' => $info['error'] ?? null,
-                    ];
-                    break;
+            $jobs = [];
+            $globalSync = null;
+            foreach ($queue->getJobInfo(100) as $info) {
+                $description = (string)$info['description'];
+                if (!str_contains($description, 'Syncing AI search index')) {
+                    continue;
+                }
+                $siteId = null;
+                if (preg_match('/\[site:(\d+)\]/', $description, $m)) {
+                    $siteId = (int)$m[1];
+                }
+                $entry = [
+                    'id' => $info['id'],
+                    'siteId' => $siteId,
+                    'description' => $description,
+                    'progress' => $info['progress'],
+                    'progressLabel' => $info['progressLabel'],
+                    'status' => $info['status'],
+                    'error' => $info['error'] ?? null,
+                ];
+                if ($siteId === null && $globalSync === null) {
+                    $globalSync = $entry;
+                } elseif ($siteId !== null) {
+                    $jobs[] = $entry;
                 }
             }
 
@@ -197,12 +226,85 @@ class IndexController extends BaseApiController
                 'success' => true,
                 'entryCount' => $stats['entryCount'],
                 'chunkCount' => $stats['chunkCount'],
+                'perSite' => $perSite,
+                'jobs' => $jobs,
                 'queueRemaining' => $queueTotal,
-                'sync' => $sync,
+                'sync' => $globalSync,
             ]);
         } catch (\Throwable $e) {
             return $this->jsonError($e, 'getStats');
         }
+    }
+
+    /**
+     * Build the data needed by the Overview tab template. Decides between three
+     * mutually-exclusive states (onboarding / disconnected / ready) and assembles
+     * per-site cards from the vectors-side counters and entry-side coverage.
+     */
+    private function buildOverviewData(array $setup, array $stats): array
+    {
+        $plugin = AiSearch::getInstance();
+        $sites = Craft::$app->getSites()->getAllSites();
+        $isMultiSite = count($sites) > 1;
+
+        if (!$setup['credentials'] || !$setup['schema'] || !$setup['openaiKey']) {
+            return [
+                'state' => 'onboarding',
+                'error' => null,
+                'sites' => [],
+                'isMultiSite' => $isMultiSite,
+            ];
+        }
+
+        if (!$setup['connection']) {
+            return [
+                'state' => 'disconnected',
+                'error' => $stats['error'] ?? null,
+                'sites' => [],
+                'isMultiSite' => $isMultiSite,
+            ];
+        }
+
+        try {
+            $perSite = $plugin->databaseService->getStatsPerSite();
+        } catch (DatabaseException) {
+            $perSite = [];
+        }
+        $statsBySiteId = [];
+        foreach ($perSite as $row) {
+            $statsBySiteId[$row['siteId']] = $row;
+        }
+
+        $coverage = $plugin->indexingDebugService->getCoverageBySite();
+        $coverageBySiteId = [];
+        foreach ($coverage as $row) {
+            $coverageBySiteId[$row['siteId']] = $row;
+        }
+
+        $rows = [];
+        foreach ($sites as $site) {
+            $sid = (int)$site->id;
+            $cov = $coverageBySiteId[$sid] ?? ['indexed' => 0, 'stale' => 0, 'notIndexed' => 0, 'total' => 0];
+            $st = $statsBySiteId[$sid] ?? ['entryCount' => 0, 'chunkCount' => 0, 'lastIndexed' => null];
+            $rows[] = [
+                'siteId' => $sid,
+                'name' => $site->name ?: $site->handle,
+                'handle' => $site->handle,
+                'indexed' => $cov['indexed'],
+                'stale' => $cov['stale'],
+                'notIndexed' => $cov['notIndexed'],
+                'total' => $cov['total'],
+                'chunkCount' => $st['chunkCount'],
+                'lastIndexed' => $st['lastIndexed'],
+            ];
+        }
+
+        return [
+            'state' => 'ready',
+            'error' => null,
+            'sites' => $rows,
+            'isMultiSite' => $isMultiSite,
+        ];
     }
 
     public function actionCancelSync(): Response

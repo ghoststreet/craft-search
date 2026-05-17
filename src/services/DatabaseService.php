@@ -350,13 +350,18 @@ class DatabaseService extends Component
      * @return int Number of deleted rows
      * @throws DatabaseException
      */
-    public function deleteOrphanedVectors(array $activeKeys): int
+    public function deleteOrphanedVectors(array $activeKeys, ?int $siteId = null): int
     {
         $db = $this->getConnection();
         $table = $this->getQualifiedTable();
 
         try {
-            $stmt = $db->query("SELECT DISTINCT \"elementId\", \"siteId\" FROM {$table}");
+            if ($siteId !== null) {
+                $stmt = $db->prepare("SELECT DISTINCT \"elementId\", \"siteId\" FROM {$table} WHERE \"siteId\" = :siteId");
+                $stmt->execute([':siteId' => $siteId]);
+            } else {
+                $stmt = $db->query("SELECT DISTINCT \"elementId\", \"siteId\" FROM {$table}");
+            }
             $indexed = $stmt->fetchAll();
 
             $activeLookup = [];
@@ -528,6 +533,44 @@ class DatabaseService extends Component
         $cache->set($cacheKey, $stats, 60);
 
         return $stats;
+    }
+
+    /**
+     * Per-site dashboard counters from the vectors table.
+     *
+     * @return list<array{siteId: int, entryCount: int, chunkCount: int, lastIndexed: ?string}>
+     * @throws DatabaseException
+     */
+    public function getStatsPerSite(): array
+    {
+        $db = $this->getConnection();
+        $table = $this->getQualifiedTable();
+
+        try {
+            $stmt = $db->query("
+                SELECT
+                    \"siteId\",
+                    COUNT(DISTINCT \"elementId\") AS \"entryCount\",
+                    COUNT(*) AS \"chunkCount\",
+                    MAX(\"dateUpdated\") AS \"lastIndexed\"
+                FROM {$table}
+                GROUP BY \"siteId\"
+            ");
+
+            $rows = [];
+            while ($row = $stmt->fetch()) {
+                $rows[] = [
+                    'siteId' => (int)$row['siteId'],
+                    'entryCount' => (int)$row['entryCount'],
+                    'chunkCount' => (int)$row['chunkCount'],
+                    'lastIndexed' => $row['lastIndexed'] ?? null,
+                ];
+            }
+            return $rows;
+        } catch (PDOException $e) {
+            Logger::exception($e, 'getStatsPerSite');
+            throw DatabaseException::queryFailed('getStatsPerSite', $e);
+        }
     }
 
     /**

@@ -12,66 +12,32 @@
 
 {% block content %}
     {% if tab == 'overview' %}
-        {% if setup.ready %}
-            <h2>Index statistics</h2>
-            {% include 'ai-search/_partials/index-stats-table' with { stats: stats } only %}
+        {% if overview.state == 'onboarding' %}
+            {% include 'ai-search/_partials/overview-onboarding' with { setup: setup } only %}
+
+        {% elseif overview.state == 'disconnected' %}
+            {% include 'ai-search/_partials/overview-disconnected' with { error: overview.error } only %}
+
         {% else %}
-            <h2>Finish setup</h2>
-            <p class="light">Each step links to where it can be fixed.</p>
-            <table class="data fullwidth collapsible">
-                <tbody>
-                    {% set steps = [
-                        { done: setup.credentials, label: 'Configure PostgreSQL credentials', hint: setup.credentials ? null : 'Host, database, user, and password are all required.' },
-                        { done: setup.connection, label: 'Connect to the vector database', hint: (setup.credentials and not setup.connection) ? setup.error : null },
-                        { done: setup.schema, label: 'Initialize the vector schema', hint: (setup.connection and not setup.schema) ? 'The vectors table was not found. Run the setup SQL from the README.' : null },
-                        { done: setup.openaiKey, label: 'Add the OpenAI API key', hint: setup.openaiKey ? null : 'Required to generate embeddings during indexing.' },
-                    ] %}
-                    {% for step in steps %}
-                        <tr>
-                            <td class="thin centeralign">
-                                {% if step.done %}<span class="success" data-icon="check"></span>
-                                {% else %}<span class="error" data-icon="error"></span>{% endif %}
-                            </td>
-                            <td>
-                                <a href="{{ cpUrl('ai-search/settings') }}">{{ step.label }}</a>
-                                {% if step.hint %}<div class="light smalltext">{{ step.hint }}</div>{% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
-
-        <div class="sync-progress" data-craftsearch-target="reindex-progress"{% if syncStarted ?? false %} data-craftsearch-sync-started="1"{% endif %} hidden>
-            <div class="pane">
-                <p><strong data-craftsearch-target="progress-title">Sync queued…</strong></p>
-                <div data-craftsearch-target="progress-bar-container" style="margin: 8px 0;"></div>
-                <p class="light" data-craftsearch-target="progress-label">Waiting for worker…</p>
-                <p data-craftsearch-target="progress-error" class="error" hidden></p>
-                <div class="buttons">
-                    <button type="button" class="btn" data-craftsearch-control="cancel-btn">Cancel sync</button>
+            {% if overview.isMultiSite %}
+                <div class="craftsearch-overview-actions">
+                    <form method="post">
+                        {{ csrfInput() }}
+                        {{ actionInput('ai-search/index/sync') }}
+                        <button type="submit" class="btn submit" data-craftsearch-control="sync-all-btn">Sync all sites</button>
+                    </form>
+                    <p class="light smalltext">Only changed entries are re-embedded — unchanged ones are skipped.</p>
                 </div>
+            {% endif %}
+
+            <div class="craftsearch-card-grid"
+                 data-craftsearch-target="overview-grid"
+                 {% if syncStarted ?? false %}data-craftsearch-sync-started="1"{% endif %}>
+                {% for site in overview.sites %}
+                    {% include 'ai-search/_partials/overview-site-card' with { site: site, isMultiSite: overview.isMultiSite } only %}
+                {% endfor %}
             </div>
-        </div>
-
-        <hr>
-
-        <h2>Sync index</h2>
-        <p class="light">Compares every published entry against the index, re-embeds only entries whose content changed, and removes vectors for entries that no longer exist. Unchanged entries are skipped — no OpenAI calls, no DB writes.</p>
-        {% if not setup.ready %}
-            <p class="light">Complete the steps above to enable syncing.</p>
         {% endif %}
-
-        <form method="post">
-            {{ csrfInput() }}
-            {{ actionInput('ai-search/index/sync') }}
-            <div class="buttons">
-                <button type="submit" class="btn submit" data-craftsearch-control="reindex-btn"
-                        {% if not setup.ready %}disabled{% endif %}>
-                    Sync index
-                </button>
-            </div>
-        </form>
 
     {% elseif tab == 'entries' %}
         {% if error %}
@@ -103,7 +69,6 @@
         } only %}
 
     {% elseif tab == 'coverage' %}
-        <p class="light">Index coverage per Craft site. Rebuild stale entries from the Overview &amp; sync tab.</p>
         {% if coverage|length %}
             <div class="tableview">
                 <table class="data fullwidth big">
@@ -121,10 +86,10 @@
                         {% for c in coverage %}
                             {% set pct = c.total > 0 ? (c.indexed / c.total * 100)|round : 0 %}
                             <tr>
-                                <td>{{ c.site }}</td>
+                                <td>{{ c.site|default('') ? c.site : c.handle }}</td>
                                 <td class="rightalign">{{ c.indexed }}</td>
-                                <td class="rightalign">{% if c.stale > 0 %}<span class="status orange"></span> {{ c.stale }}{% else %}—{% endif %}</td>
-                                <td class="rightalign">{% if c.notIndexed > 0 %}<span class="status off"></span> {{ c.notIndexed }}{% else %}—{% endif %}</td>
+                                <td class="rightalign">{% if c.stale > 0 %}<span class="status orange"></span> {% endif %}{{ c.stale }}</td>
+                                <td class="rightalign">{% if c.notIndexed > 0 %}<span class="status off"></span> {% endif %}{{ c.notIndexed }}</td>
                                 <td class="rightalign">{{ c.total }}</td>
                                 <td class="rightalign">{{ pct }}%</td>
                             </tr>

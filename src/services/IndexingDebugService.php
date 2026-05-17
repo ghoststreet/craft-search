@@ -114,7 +114,7 @@ class IndexingDebugService extends Component
      * not-indexed counts. Failures during vector lookup yield zeroed entries
      * so the chart still renders.
      *
-     * @return list<array{siteId: int, site: string, indexed: int, stale: int, notIndexed: int, total: int}>
+     * @return list<array{siteId: int, site: string, handle: string, indexed: int, stale: int, notIndexed: int, total: int}>
      */
     public function getCoverageBySite(): array
     {
@@ -159,6 +159,7 @@ class IndexingDebugService extends Component
             $out[] = [
                 'siteId' => (int)$site->id,
                 'site' => $site->name,
+                'handle' => $site->handle,
                 'indexed' => $indexed,
                 'stale' => $stale,
                 'notIndexed' => $notIndexed,

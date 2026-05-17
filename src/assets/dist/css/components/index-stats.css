@@ -13,10 +13,16 @@
     align-items: center;
     gap: 6px;
 }
+
+.index-stats__item .status {
+    margin-right: 0px;
+}
+
 .index-stats__count {
     font-weight: 600;
     font-size: 14px;
 }
+
 .index-stats__label {
     color: var(--medium-text-color);
     font-size: 12px;

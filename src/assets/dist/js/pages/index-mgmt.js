@@ -4,21 +4,10 @@
     var ns = window.CraftSearch;
     var DOM = ns.core.DOM;
 
-    var STATUS_WAITING = 1;
     var STATUS_RESERVED = 2;
     var STATUS_FAILED = 4;
 
-    var progressBar = null;
-    var cancelling = false;
-
-    function ensureBar() {
-        if (progressBar) return progressBar;
-        var container = DOM.find('progress-bar-container');
-        if (!container) return null;
-        progressBar = new Craft.ProgressBar(container, true, { announceProgress: false });
-        progressBar.showProgressBar();
-        return progressBar;
-    }
+    var cardState = {};
 
     function parseSteps(label) {
         if (!label) return null;
@@ -27,83 +16,126 @@
         return { step: parseInt(m[1].replace(/,/g, ''), 10), total: parseInt(m[2].replace(/,/g, ''), 10) };
     }
 
-    function showTerminal(html) {
-        var pane = DOM.find('reindex-progress');
-        if (!pane) return;
-        pane.innerHTML = '<div class="pane">' + html + '</div>';
-        var btn = DOM.findControl('reindex-btn');
-        if (btn) btn.disabled = false;
-        progressBar = null;
-    }
-
-    function render(data) {
-        var statEntries = DOM.find('stat-entries');
-        var statChunks = DOM.find('stat-chunks');
-        if (statEntries) statEntries.textContent = data.entryCount.toLocaleString();
-        if (statChunks) statChunks.textContent = data.chunkCount.toLocaleString();
-
-        var pane = DOM.find('reindex-progress');
-        var title = DOM.find('progress-title');
-        var label = DOM.find('progress-label');
-        var errorEl = DOM.find('progress-error');
-        var startBtn = DOM.findControl('reindex-btn');
-        var cancelBtn = DOM.findControl('cancel-btn');
-
-        if (data.sync && data.sync.status === STATUS_FAILED) {
-            var msg = data.sync.error || 'Sync job failed. Check the queue log for details.';
-            showTerminal('<p><strong>Sync failed.</strong></p><p class="error">' + escapeHtml(msg) + '</p>');
-            return false;
-        }
-
-        if (!data.sync && data.queueRemaining === 0) {
-            if (pane && !pane.hidden) {
-                var doneMsg = cancelling ? '<p><strong>Sync cancelled.</strong></p>' : '<p><strong>Sync complete.</strong></p>';
-                showTerminal(doneMsg);
-            }
-            cancelling = false;
-            return false;
-        }
-
-        if (pane) pane.hidden = false;
-        if (startBtn) startBtn.disabled = true;
-        if (cancelBtn) cancelBtn.disabled = cancelling;
-        if (errorEl) { errorEl.hidden = true; errorEl.textContent = ''; }
-        var bar = ensureBar();
-
-        if (data.sync) {
-            var running = data.sync.status === STATUS_RESERVED;
-            if (title) {
-                title.textContent = cancelling
-                    ? 'Cancelling…'
-                    : (running ? (data.sync.description || 'Syncing AI search index') : 'Sync queued — waiting for worker…');
-            }
-            var steps = parseSteps(data.sync.progressLabel);
-            if (bar) {
-                if (steps && steps.total > 0) {
-                    bar.setItemCount(steps.total);
-                    bar.setProcessedItemCount(steps.step);
-                    bar.updateProgressBar();
-                } else {
-                    bar.setProgressPercentage(data.sync.progress || 0);
-                }
-            }
-            if (label) {
-                label.textContent = running
-                    ? (data.sync.progressLabel || 'Starting…')
-                    : 'Waiting for worker…';
-            }
-        } else {
-            if (title) title.textContent = 'Other queue jobs ahead of sync…';
-            if (bar) bar.setProgressPercentage(0);
-            if (label) label.textContent = data.queueRemaining + ' jobs waiting';
-        }
-        return true;
-    }
-
     function escapeHtml(s) {
         return String(s).replace(/[&<>"']/g, function (c) {
             return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
         });
+    }
+
+    function getCardsBySite() {
+        var map = {};
+        var cards = document.querySelectorAll('[data-craftsearch-site-id]');
+        Array.prototype.forEach.call(cards, function (card) {
+            var sid = parseInt(card.getAttribute('data-craftsearch-site-id'), 10);
+            if (!isNaN(sid)) map[sid] = card;
+        });
+        return map;
+    }
+
+    function ensureCardState(siteId, card) {
+        if (cardState[siteId]) return cardState[siteId];
+        var barContainer = DOM.find('site-progress-bar', card);
+        var bar = barContainer ? new Craft.ProgressBar(barContainer, true, { announceProgress: false }) : null;
+        if (bar) bar.showProgressBar();
+        cardState[siteId] = {
+            card: card,
+            bar: bar,
+            pane: DOM.find('site-progress', card),
+            label: DOM.find('site-progress-label', card),
+            errorEl: DOM.find('site-progress-error', card),
+            button: DOM.findControl('sync-site-btn', card),
+            wasActive: false,
+        };
+        return cardState[siteId];
+    }
+
+    function renderCardJob(state, job) {
+        if (state.pane) state.pane.hidden = false;
+        if (state.button) state.button.disabled = true;
+        if (state.errorEl) { state.errorEl.hidden = true; state.errorEl.textContent = ''; }
+
+        if (job.status === STATUS_FAILED) {
+            if (state.errorEl) {
+                state.errorEl.hidden = false;
+                state.errorEl.textContent = job.error || 'Sync failed. Check the queue log.';
+            }
+            if (state.label) state.label.textContent = 'Failed';
+            if (state.button) state.button.disabled = false;
+            state.wasActive = false;
+            return;
+        }
+
+        var running = job.status === STATUS_RESERVED;
+        var steps = parseSteps(job.progressLabel);
+        if (state.bar) {
+            if (steps && steps.total > 0) {
+                state.bar.setItemCount(steps.total);
+                state.bar.setProcessedItemCount(steps.step);
+                state.bar.updateProgressBar();
+            } else {
+                state.bar.setProgressPercentage(job.progress || 0);
+            }
+        }
+        if (state.label) {
+            state.label.textContent = running
+                ? (job.progressLabel || 'Indexing…')
+                : 'Queued — waiting for worker…';
+        }
+        state.wasActive = true;
+    }
+
+    function renderCardIdle(state, perSiteRow) {
+        if (state.wasActive && state.pane) {
+            state.pane.hidden = true;
+            if (state.label) state.label.textContent = 'Synced.';
+        }
+        if (state.button) state.button.disabled = false;
+        if (perSiteRow) {
+            updateStat(state.card, 'chunks', perSiteRow.chunkCount.toLocaleString());
+            updateStat(state.card, 'lastSync',
+                perSiteRow.lastIndexed ? 'Last sync ' + formatDate(perSiteRow.lastIndexed) : 'Never synced');
+        }
+        state.wasActive = false;
+    }
+
+    function updateStat(card, key, value) {
+        var el = card.querySelector('[data-craftsearch-stat="' + key + '"]');
+        if (el) el.textContent = value;
+    }
+
+    function formatDate(iso) {
+        try {
+            var d = new Date(iso.replace(' ', 'T'));
+            if (isNaN(d.getTime())) return iso;
+            return d.toLocaleString();
+        } catch (e) {
+            return iso;
+        }
+    }
+
+    function render(data) {
+        var cards = getCardsBySite();
+        var jobsBySite = {};
+        (data.jobs || []).forEach(function (job) {
+            if (job.siteId !== null && job.siteId !== undefined) jobsBySite[job.siteId] = job;
+        });
+        var perSiteBySite = {};
+        (data.perSite || []).forEach(function (row) { perSiteBySite[row.siteId] = row; });
+
+        var anyActive = false;
+        Object.keys(cards).forEach(function (sid) {
+            var card = cards[sid];
+            var state = ensureCardState(sid, card);
+            var job = jobsBySite[sid];
+            if (job) {
+                renderCardJob(state, job);
+                if (job.status !== STATUS_FAILED) anyActive = true;
+            } else {
+                renderCardIdle(state, perSiteBySite[sid]);
+            }
+        });
+
+        return anyActive || data.queueRemaining > 0;
     }
 
     function poll() {
@@ -121,23 +153,6 @@
                     if (keep === false) clearInterval(interval);
                 });
             }, 2000);
-        });
-    }
-
-    function bindCancel() {
-        var btn = DOM.findControl('cancel-btn');
-        if (!btn) return;
-        btn.addEventListener('click', function () {
-            if (cancelling) return;
-            if (!confirm('Cancel the current sync? The running batch will exit at the next entry and no further work will be queued.')) return;
-            cancelling = true;
-            btn.disabled = true;
-            Craft.sendActionRequest('POST', 'ai-search/index/cancel-sync').then(function () {
-                poll();
-            }).catch(function () {
-                cancelling = false;
-                btn.disabled = false;
-            });
         });
     }
 
@@ -220,12 +235,10 @@
         init: function () {
             bindReindexForms();
 
-            var pane = DOM.find('reindex-progress');
-            if (!pane) return;
+            var grid = DOM.find('overview-grid');
+            if (!grid) return;
 
-            bindCancel();
-
-            if (pane.getAttribute('data-craftsearch-sync-started') === '1') {
+            if (grid.getAttribute('data-craftsearch-sync-started') === '1') {
                 startPolling();
                 return;
             }

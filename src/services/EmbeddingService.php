@@ -383,6 +383,7 @@ class EmbeddingService extends Component
                     'indexed' => false,
                     'reason' => 'searchable=false',
                     'extractedText' => '',
+                    'blocks' => [],
                 ];
                 continue;
             }
@@ -395,6 +396,7 @@ class EmbeddingService extends Component
                     'indexed' => false,
                     'reason' => 'skipped',
                     'extractedText' => '',
+                    'blocks' => [],
                 ];
                 continue;
             }
@@ -408,11 +410,13 @@ class EmbeddingService extends Component
                     'indexed' => false,
                     'reason' => 'null value',
                     'extractedText' => '',
+                    'blocks' => [],
                 ];
                 continue;
             }
 
             $extracted = $this->extractTextFromFieldValue($field, $fieldValue);
+            $blocks = $this->inspectBlocksFromFieldValue($fieldValue);
 
             if (!TextValidator::isNotEmpty($extracted)) {
                 $rows[] = [
@@ -422,6 +426,7 @@ class EmbeddingService extends Component
                     'indexed' => false,
                     'reason' => 'no extractable text',
                     'extractedText' => '',
+                    'blocks' => $blocks,
                 ];
                 continue;
             }
@@ -433,10 +438,54 @@ class EmbeddingService extends Component
                 'indexed' => true,
                 'reason' => '',
                 'extractedText' => $extracted,
+                'blocks' => $blocks,
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * If the field value is an iterable of block elements (Matrix entries / Super Table rows),
+     * return a per-block breakdown with each block's own per-field inspection rows. Otherwise empty.
+     *
+     * @return array<int, array{label: string, blockTypeHandle: ?string, id: ?int, fields: array}>
+     */
+    private function inspectBlocksFromFieldValue(mixed $fieldValue): array
+    {
+        if (!is_iterable($fieldValue)) {
+            return [];
+        }
+
+        $blocks = [];
+        $index = 0;
+
+        foreach ($fieldValue as $item) {
+            $isMatrixBlock = $item instanceof Entry && $item->getOwnerId() !== null;
+            $isSuperTable = $this->isSuperTableBlock($item);
+            if (!$isMatrixBlock && !$isSuperTable) {
+                continue;
+            }
+
+            $typeHandle = null;
+            if ($isMatrixBlock) {
+                $typeHandle = $item->getType()?->handle;
+            } elseif (method_exists($item, 'getType')) {
+                $typeHandle = $item->getType()?->handle ?? null;
+            }
+
+            $index++;
+            $label = ($typeHandle ?? 'block') . ' #' . $index;
+
+            $blocks[] = [
+                'label' => $label,
+                'blockTypeHandle' => $typeHandle,
+                'id' => $item->id ?? null,
+                'fields' => $this->inspectFieldsFromLayout($item),
+            ];
+        }
+
+        return $blocks;
     }
 
     /**

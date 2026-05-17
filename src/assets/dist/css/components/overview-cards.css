@@ -1,0 +1,161 @@
+.craftsearch-overview-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0 20px;
+}
+
+.craftsearch-overview-actions p {
+    margin: 0;
+}
+
+.craftsearch-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.craftsearch-card {
+    background: var(--gray-050, #f3f7fc);
+    border: 1px solid var(--hairline-color, #cdd8e4);
+    border-radius: 10px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: border-color 120ms ease;
+}
+
+.craftsearch-card--warn {
+    border-color: #f0b67a;
+    background: #fff9f0;
+}
+
+.craftsearch-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.craftsearch-card__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.craftsearch-card__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--gray-100, #eef1f5);
+    color: var(--medium-text-color, #606d7b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.craftsearch-card__pill--warn {
+    background: #fbe7c8;
+    color: #8a5a14;
+}
+
+.craftsearch-card__hero {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 0;
+}
+
+.craftsearch-card__hero-number {
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--text-color, #29323d);
+}
+
+.craftsearch-card__hero-total {
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--medium-text-color, #606d7b);
+}
+
+.craftsearch-card__hero-label {
+    font-size: 12px;
+    color: var(--medium-text-color, #606d7b);
+}
+
+.craftsearch-card__gaps {
+    list-style: none;
+    margin: 0;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.025);
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.craftsearch-card__gaps li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.craftsearch-card__gaps li + li {
+    margin-top: 4px;
+}
+
+.craftsearch-card__progress {
+    padding: 10px 12px;
+    background: var(--gray-050, #f9fafc);
+    border: 1px solid var(--hairline-color, #cdd8e4);
+    border-radius: 6px;
+}
+
+.craftsearch-card__progress p {
+    margin: 0 0 6px;
+}
+
+.craftsearch-card__progress p:last-child {
+    margin-bottom: 0;
+}
+
+.craftsearch-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 6px;
+    border-top: 1px solid var(--hairline-color, #cdd8e4);
+}
+
+.craftsearch-card__meta {
+    font-size: 12px;
+    color: var(--medium-text-color, #606d7b);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.craftsearch-card__footer form {
+    margin: 0;
+}
+
+.craftsearch-btn--danger {
+    background-color: #cf3b3b !important;
+    color: #fff !important;
+    border-color: #cf3b3b !important;
+}
+
+.craftsearch-btn--danger:hover,
+.craftsearch-btn--danger:focus {
+    background-color: #b53131 !important;
+    border-color: #b53131 !important;
+    color: #fff !important;
+}

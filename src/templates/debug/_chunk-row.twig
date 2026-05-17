@@ -1,9 +1,15 @@
 {# @var chunk dict #}
+{# @var maxTokens int #}
+{% set tokens = chunk.estimatedTokens ?? 0 %}
+{% set max = maxTokens ?? 0 %}
+{% set barPct = max > 0 ? (tokens / max * 100)|round : 0 %}
 <div class="chunk-row pane">
     <header class="chunk-row__header">
         <span class="chunk-row__index">#{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</span>
-        <span class="chunk-row__tokens">~{{ chunk.estimatedTokens }} {{ 'tokens'|t('ai-search') }}</span>
-        <span class="chunk-row__spacer"></span>
+        <span class="chunk-row__tokens">~{{ tokens }} {{ 'tokens'|t('ai-search') }}</span>
+        <div class="chunk-row__token-bar" aria-hidden="true">
+            <span style="width: {{ barPct }}%"></span>
+        </div>
         <span class="chunk-row__updated">{{ chunk.dateUpdated|date('M j, Y g:i A') }}</span>
     </header>
     {% if chunk.content %}

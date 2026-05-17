@@ -1,0 +1,15 @@
+{#
+    Banner shown on the Overview tab when credentials are filled but the vector
+    database is unreachable. Distinct from the onboarding checklist — this is a
+    runtime failure, not a missing-config state.
+
+    Params:
+        error  string  PDO/Database exception message
+#}
+<blockquote class="note warning">
+    <p><strong>Can't reach the vector database.</strong></p>
+    {% if error %}<p class="smalltext code">{{ error }}</p>{% endif %}
+    <p>
+        <a class="btn" href="{{ cpUrl('ai-search/settings') }}">Review connection settings</a>
+    </p>
+</blockquote>
