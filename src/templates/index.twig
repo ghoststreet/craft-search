@@ -2,14 +2,28 @@
 
 {% set title = 'AI Search' %}
 
-{# Build the chart series upfront so the KPI grid partial stays presentation-only. #}
+{# Native CP layout tabs — _layouts/cp.twig reads the `tabs` and `selectedTab` vars
+   and renders them in the page header via _includes/tabs.twig, identical to the
+   pattern used by Settings, Fields, and the rest of the CP. Only shown when the
+   plugin is set up (otherwise the onboarding card replaces everything). #}
+{% if setupComplete ?? false %}
+    {% set tabs = {
+        quality: { label: 'Search Quality'|t('ai-search'), url: cpUrl('ai-search', { range: range, tab: 'quality' }) },
+        ops: { label: 'Operations'|t('ai-search'), url: cpUrl('ai-search', { range: range, tab: 'ops' }) },
+    } %}
+    {% set selectedTab = tab %}
+{% endif %}
+
+{# Build chart-friendly series upfront so partials stay presentation-only. #}
 {% set seriesSearches = [] %}
 {% set seriesCost = [] %}
 {% set seriesDuration = [] %}
+{% set seriesZero = [] %}
 {% for r in dailySeries %}
     {% set seriesSearches = seriesSearches|merge([{ date: r.date, value: r.searches }]) %}
     {% set seriesCost = seriesCost|merge([{ date: r.date, value: r.cost }]) %}
     {% set seriesDuration = seriesDuration|merge([{ date: r.date, avg: r.avgMs, p95: r.p95Ms }]) %}
+    {% set seriesZero = seriesZero|merge([{ date: r.date, value: r.zeroResults }]) %}
 {% endfor %}
 
 {% set coverageTotals = { indexed: 0, stale: 0, notIndexed: 0 } %}
@@ -34,46 +48,33 @@
 
     {% else %}
 
-        {# Critical alerts: only show top-priority advisory as full banner #}
+        {# Critical alerts — render every crit, not just the first. #}
         {% set criticals = recommendations|filter(r => r.level == 'crit') %}
-        {% if criticals|length %}
-            {% set top = criticals|first %}
-            <div class="alert">
-                <strong>{{ top.title }}.</strong> {{ top.body }}
-                {% if top.cta %} <a href="{{ top.cta.url }}">{{ top.cta.label }} →</a>{% endif %}
+        {% for c in criticals %}
+            <div class="alert" role="alert">
+                <strong>{{ c.title }}.</strong> {{ c.body }}
+                {% if c.cta %} <a href="{{ c.cta.url }}">{{ c.cta.label }} →</a>{% endif %}
             </div>
+        {% endfor %}
+
+        {# Range picker — sits in its own toolbar row below the native tabs. #}
+        <div class="flex flex-justify">
+            <span></span>
+            {% include 'ai-search/_dashboard/_range-picker' with { range: range, allowedRanges: allowedRanges, tab: tab } only %}
+        </div>
+
+        {% if tab == 'ops' %}
+            {% include 'ai-search/_dashboard/_ops-tab' with _context only %}
+        {% else %}
+            {% include 'ai-search/_dashboard/_quality-tab' with _context only %}
         {% endif %}
 
-        {% include 'ai-search/_dashboard/_kpi-grid' with {
-            aggregates: aggregates,
-            seriesSearches: seriesSearches,
-            seriesCost: seriesCost,
-            seriesDuration: seriesDuration,
-            coverageTotals: coverageTotals,
-            coverageTotal: coverageTotal,
-            coveragePct: coveragePct,
-            budget: budget,
-            budgetClass: budgetClass,
-            budgetPct: budgetPct,
-        } only %}
-
-        {% include 'ai-search/_dashboard/_health-row' with {
-            settings: settings,
-            stats: stats,
-            coveragePct: coveragePct,
-            budget: budget,
-            budgetPct: budgetPct,
-        } only %}
-
-        {% include 'ai-search/_dashboard/_body-cards' with {
-            topQueries: topQueries,
-            zeroResults: zeroResults,
-            coverage: coverage,
-            coverageTotal: coverageTotal,
-            recentErrors: recentErrors,
-        } only %}
-
-        {% include 'ai-search/_dashboard/_recommendations' with { recommendations: recommendations } only %}
+        {# Data freshness disclosure — surface server timezone and "includes admin searches" caveat. #}
+        <p class="dashboard__as-of light smalltext">
+            As of {{ dataAsOf|date('M j, g:i A') }} ({{ dataAsOf|date('T') }}).
+            Counts include searches issued from the control panel.
+            Coverage may lag by up to 60s.
+        </p>
 
     {% endif %}
 </div>

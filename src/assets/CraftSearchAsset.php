@@ -31,7 +31,6 @@ class CraftSearchAsset extends AssetBundle
             // Components (alphabetical)
             'css/components/alert.css',
             'css/components/budget-bar.css',
-            'css/components/card.css',
             'css/components/chunk-row.css',
             'css/components/debug-extracted.css',
             'css/components/delta-tag.css',
@@ -40,7 +39,6 @@ class CraftSearchAsset extends AssetBundle
             'css/components/health-row.css',
             'css/components/index-stats.css',
             'css/components/kpi-grid.css',
-            'css/components/mini-table.css',
             'css/components/onboarding-list.css',
             'css/components/overview-cards.css',
             'css/components/pagination.css',

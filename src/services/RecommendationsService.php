@@ -20,6 +20,9 @@ class RecommendationsService extends Component
     public const LEVEL_WARN = 'warn';
     public const LEVEL_CRIT = 'crit';
 
+    public const CAT_OPS = 'ops';
+    public const CAT_QUALITY = 'quality';
+
     /**
      * @param array $context  Pre-computed values the dashboard already has, to avoid duplicate work.
      *                        Keys: dailySeries (list), coverage (list per-site), budget (assoc),
@@ -114,7 +117,8 @@ class RecommendationsService extends Component
                     round($context['zeroResultRate'] * 100) . '% of recent searches return zero results',
                     'Inspect top zero-result queries — they often indicate missing content or overly strict thresholds.',
                     'View zero-results',
-                    'ai-search/insights?tab=zero-results'
+                    'ai-search/insights?tab=zero-results',
+                    self::CAT_QUALITY
                 );
             }
         }
@@ -129,7 +133,8 @@ class RecommendationsService extends Component
                     'No searches recorded in the last 7 days',
                     'Content is indexed but the search endpoint is not receiving traffic. Verify your front-end integration.',
                     null,
-                    null
+                    null,
+                    self::CAT_QUALITY
                 );
             }
 
@@ -160,10 +165,11 @@ class RecommendationsService extends Component
         return $out;
     }
 
-    private function advisory(string $level, string $title, string $body, ?string $ctaLabel, ?string $ctaUrl): array
+    private function advisory(string $level, string $title, string $body, ?string $ctaLabel, ?string $ctaUrl, string $category = self::CAT_OPS): array
     {
         return [
             'level' => $level,
+            'category' => $category,
             'title' => $title,
             'body' => $body,
             'cta' => ($ctaLabel && $ctaUrl) ? ['label' => $ctaLabel, 'url' => UrlHelper::cpUrl($ctaUrl)] : null,

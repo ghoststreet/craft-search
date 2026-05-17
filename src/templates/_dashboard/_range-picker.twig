@@ -1,0 +1,16 @@
+{#
+    Global date-range picker — Craft native .btngroup with .btn small + .is-active
+    (same pattern used elsewhere in this plugin).
+
+    Params:
+        range          int  current range
+        allowedRanges  list<int>
+        tab            string
+#}
+<div class="btngroup" role="group" aria-label="Date range">
+    {% for r in allowedRanges %}
+        <a class="btn small{% if r == range %} is-active{% endif %}"
+           href="{{ cpUrl('ai-search', { range: r, tab: tab }) }}"
+           {% if r == range %}aria-current="page"{% endif %}>{{ r }}d</a>
+    {% endfor %}
+</div>

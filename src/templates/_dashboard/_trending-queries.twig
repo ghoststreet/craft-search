@@ -1,0 +1,36 @@
+{#
+    Trending queries card — keywords whose volume rose vs the prior window.
+
+    Params:
+        trendingQueries  iterable of { query, recent, prior, delta, growthPct? }
+#}
+<div class="pane">
+    <h3 class="dash-title">Trending queries</h3>
+    <p class="dash-sub light smalltext">Biggest growth vs the prior period.</p>
+    <table class="data fullwidth">
+        <thead>
+            <tr>
+                <th>Query</th>
+                <th class="rightalign">Recent</th>
+                <th class="rightalign">Growth</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in trendingQueries %}
+                <tr>
+                    <td>{{ q.query|slice(0, 80) }}{% if q.query|length > 80 %}…{% endif %}</td>
+                    <td class="rightalign">{{ q.recent|number_format }}</td>
+                    <td class="rightalign">
+                        {% if q.growthPct is null %}
+                            <span class="delta-tag delta-tag--up">new</span>
+                        {% else %}
+                            <span class="delta-tag delta-tag--up">▲ {{ q.growthPct }}%</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="3" class="centeralign light">No trending queries detected — search volume is stable.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

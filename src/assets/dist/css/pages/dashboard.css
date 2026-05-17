@@ -11,3 +11,41 @@
 @media (max-width: 900px) {
     .dashboard__cols { grid-template-columns: 1fr; }
 }
+
+.dash-title {
+    margin: 0 0 10px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--medium-text-color);
+}
+.dash-title--section {
+    margin-top: 18px;
+}
+.dash-sub {
+    margin: -4px 0 8px;
+}
+.dash-empty {
+    color: var(--medium-text-color);
+    font-style: italic;
+    padding: 12px 0;
+}
+.dash-cta {
+    margin-top: 10px;
+}
+.dash-chart {
+    height: 180px;
+}
+.dash-lede {
+    margin-top: 0;
+}
+
+.kpi-card__value--muted {
+    color: var(--medium-text-color);
+}
+
+.dashboard__as-of {
+    margin-top: 4px;
+    text-align: right;
+    color: var(--medium-text-color);
+}

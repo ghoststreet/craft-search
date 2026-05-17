@@ -413,6 +413,40 @@ class HistoryService extends Component
     }
 
     /**
+     * True overall percentile of durationMs across raw rows in the window. Portable across MySQL/Postgres:
+     * counts qualifying rows, then SELECTs the value at the percentile offset.
+     * Returns null when no rows.
+     */
+    public function getOverallPercentile(int $days, float $percentile = 0.95, ?int $siteId = null): ?int
+    {
+        $percentile = max(0.0, min(1.0, $percentile));
+        $cutoff = Db::prepareDateForDb(new \DateTime("-{$days} days"));
+
+        $base = (new Query())
+            ->from(self::STATS_TABLE)
+            ->andWhere(['>=', 'dateCreated', $cutoff])
+            ->andWhere(['>', 'durationMs', 0]);
+        if ($siteId !== null) {
+            $base->andWhere(['siteId' => $siteId]);
+        }
+
+        $count = (int)(clone $base)->count('*');
+        if ($count === 0) {
+            return null;
+        }
+
+        $offset = (int)floor($percentile * ($count - 1));
+        $row = (clone $base)
+            ->select(['durationMs'])
+            ->orderBy(['durationMs' => SORT_ASC])
+            ->offset($offset)
+            ->limit(1)
+            ->one();
+
+        return $row ? (int)$row['durationMs'] : null;
+    }
+
+    /**
      * Embedding cache hit rate over the last $days, 0..1. Returns null when no searches.
      */
     public function getCacheHitRate(int $days = 30): ?float
@@ -452,6 +486,44 @@ class HistoryService extends Component
             return null;
         }
         return round((int)$row['zeros'] / $total, 4);
+    }
+
+    /**
+     * Queries whose average response time exceeds $thresholdMs in the window.
+     * Returns rows: [k, query, hits, avgDurationMs, lastSeen].
+     */
+    public function getSlowQueries(?int $days = 30, ?int $siteId = null, int $limit = 10, int $thresholdMs = 1500): array
+    {
+        $limit = max(1, min(50, $limit));
+        $cutoff = ($days !== null && $days > 0)
+            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
+            : null;
+
+        $q = (new Query())
+            ->from(['d' => self::DETAILS_TABLE])
+            ->innerJoin(['s' => self::STATS_TABLE], '[[s.id]] = [[d.statsId]]')
+            ->select([
+                'k' => 'LOWER(TRIM([[d.query]]))',
+                'query' => 'MIN([[d.query]])',
+                'hits' => 'COUNT(*)',
+                'avgDurationMs' => 'AVG([[s.durationMs]])',
+                'lastSeen' => 'MAX([[s.dateCreated]])',
+            ])
+            ->andWhere(['not', ['d.query' => null]])
+            ->andWhere(['<>', 'd.query', ''])
+            ->groupBy(['k'])
+            ->having(['>=', 'AVG([[s.durationMs]])', $thresholdMs])
+            ->orderBy(['avgDurationMs' => SORT_DESC])
+            ->limit($limit);
+
+        if ($cutoff !== null) {
+            $q->andWhere(['>=', 's.dateCreated', $cutoff]);
+        }
+        if ($siteId !== null) {
+            $q->andWhere(['s.siteId' => $siteId]);
+        }
+
+        return $q->all();
     }
 
     /**

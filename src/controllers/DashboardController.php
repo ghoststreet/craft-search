@@ -9,16 +9,42 @@ use yii\web\Response;
 
 /**
  * Aggregator for the AI Search dashboard. Pulls daily series, index coverage,
- * budget consumption, top queries, recent errors, and recommendations. Heavy
- * lookups (coverage by site) are cached for 60s to keep CP load snappy.
+ * budget consumption, top/zero/trending/slow queries, recent errors, and
+ * recommendations — all honoring a global `range` (days) query param. Heavy
+ * coverage-by-site lookup is cached for 60s.
+ *
+ * NOTE: the whole plugin is admin-only today (subnav + every controller).
+ * The Quality vs Operations tab split is design intent for when per-permission
+ * gating lands; for now both tabs share the admin gate.
  */
 class DashboardController extends Controller
 {
     private const CACHE_TTL = 60;
+    private const ALLOWED_RANGES = [7, 30, 90];
+    private const DEFAULT_RANGE = 30;
+    private const ALLOWED_TABS = ['quality', 'ops'];
+    private const DEFAULT_TAB = 'quality';
+
+    /** Minimum number of searches before a rate or qualitative label is meaningful. */
+    private const MIN_N_RATE = 30;
+    /** Minimum total before a period-over-period delta is meaningful. */
+    private const MIN_N_DELTA = 50;
+    /** Minimum days of recorded data before the budget ETA is meaningful. */
+    private const MIN_DAYS_BUDGET_ETA = 7;
 
     public function actionIndex(): Response
     {
         $this->requireAdmin();
+
+        $request = Craft::$app->getRequest();
+        $range = (int)$request->getQueryParam('range', self::DEFAULT_RANGE);
+        if (!in_array($range, self::ALLOWED_RANGES, true)) {
+            $range = self::DEFAULT_RANGE;
+        }
+        $tab = (string)$request->getQueryParam('tab', self::DEFAULT_TAB);
+        if (!in_array($tab, self::ALLOWED_TABS, true)) {
+            $tab = self::DEFAULT_TAB;
+        }
 
         $plugin = AiSearch::getInstance();
         $settings = $plugin->getSettings();
@@ -27,12 +53,16 @@ class DashboardController extends Controller
         $history = $plugin->historyService;
         $cache = Craft::$app->getCache();
 
-        $dailySeries = $history->getDailySeries(30);
-        $cacheHitRate = $history->getCacheHitRate(30);
-        $zeroResultRate = $history->getZeroResultRate(30);
-        $topQueries = $history->getTopKeywords(7, null, 5);
-        $zeroResults = $history->getZeroResultQueries(7, null, 3);
-        $recentErrors = $history->getRecentErrors(5);
+        $dailySeries = $history->getDailySeries($range);
+        $cacheHitRate = $history->getCacheHitRate($range);
+        $zeroResultRate = $history->getZeroResultRate($range);
+        $topQueries = $history->getTopKeywords($range, null, 10);
+        $zeroResults = $history->getZeroResultQueries($range, null, 10);
+        $trendingWindow = min(14, max(3, (int)floor($range / 2)));
+        $trendingQueries = $history->getTrendingKeywords(null, $trendingWindow, 10);
+        $slowQueries = $history->getSlowQueries($range, null, 10, 1500);
+        $recentErrors = $history->getRecentErrors(10);
+        $p95Duration = $history->getOverallPercentile($range, 0.95) ?? 0;
 
         $coverage = $cache->getOrSet(
             'aisearch_dash_coverage',
@@ -46,7 +76,9 @@ class DashboardController extends Controller
             : 0.0;
         $budget = $plugin->rateLimitService->getBudgetConsumption($sevenDayBurn);
 
-        $aggregates = $this->computeAggregates($dailySeries);
+        $daysWithData = count(array_filter($dailySeries, static fn($r) => ($r['searches'] ?? 0) > 0));
+
+        $aggregates = $this->computeAggregates($dailySeries, $range, $p95Duration);
 
         $recommendations = $plugin->recommendationsService->build([
             'dailySeries' => $dailySeries,
@@ -57,15 +89,6 @@ class DashboardController extends Controller
             'totalEntries' => (int)($stats['entryCount'] ?? 0),
         ]);
 
-        $health = $this->computeHealth([
-            'apiKey' => !empty($settings->getOpenaiApiKey()),
-            'dbConnected' => (bool)($stats['isConnected'] ?? false),
-            'lastIndexed' => $stats['lastIndexed'] ?? null,
-            'budgetRatio' => $budget['ratio'],
-            'errorRate' => $aggregates['errorRate30'],
-            'coverage' => $coverage,
-        ]);
-
         $setupComplete = !empty($settings->getOpenaiApiKey())
             && (bool)($stats['isConnected'] ?? false)
             && (int)($stats['entryCount'] ?? 0) > 0;
@@ -74,17 +97,27 @@ class DashboardController extends Controller
             'plugin' => $plugin,
             'settings' => $settings,
             'stats' => $stats,
+            'range' => $range,
+            'allowedRanges' => self::ALLOWED_RANGES,
+            'tab' => $tab,
+            'trendingWindow' => $trendingWindow,
             'dailySeries' => $dailySeries,
             'aggregates' => $aggregates,
+            'daysWithData' => $daysWithData,
+            'minNRate' => self::MIN_N_RATE,
+            'minNDelta' => self::MIN_N_DELTA,
+            'minDaysBudgetEta' => self::MIN_DAYS_BUDGET_ETA,
+            'dataAsOf' => new \DateTime(),
             'coverage' => $coverage,
             'budget' => $budget,
             'cacheHitRate' => $cacheHitRate,
             'zeroResultRate' => $zeroResultRate,
             'topQueries' => $topQueries,
             'zeroResults' => $zeroResults,
+            'trendingQueries' => $trendingQueries,
+            'slowQueries' => $slowQueries,
             'recentErrors' => $recentErrors,
             'recommendations' => $recommendations,
-            'health' => $health,
             'setupComplete' => $setupComplete,
             'selectedSubnavItem' => 'dashboard',
         ]);
@@ -92,44 +125,45 @@ class DashboardController extends Controller
 
     /**
      * Roll up the daily series into headline KPI numbers and prior-period deltas.
+     * Splits the window in half: most recent half vs prior half.
      */
-    private function computeAggregates(array $series): array
+    private function computeAggregates(array $series, int $rangeDays, int $p95Duration): array
     {
-        $recent = array_slice($series, -15);
-        $prior = array_slice($series, 0, max(0, count($series) - 15));
+        $half = (int)ceil($rangeDays / 2);
+        $recent = array_slice($series, -$half);
+        $prior = array_slice($series, 0, max(0, count($series) - $half));
 
         $sum = static fn(array $rows, string $key) => array_sum(array_column($rows, $key));
-        $count = static fn(array $rows, string $key) => array_sum(array_column($rows, $key));
 
         $recentSearches = $sum($recent, 'searches');
         $priorSearches = $sum($prior, 'searches');
         $recentCost = $sum($recent, 'cost');
         $priorCost = $sum($prior, 'cost');
 
-        $allDurations = [];
+        // weighted-average duration across the window
+        $weightedAvgNum = 0; $weightedAvgDen = 0;
         foreach ($series as $r) {
-            if ($r['searches'] > 0 && $r['avgMs'] > 0) {
-                $allDurations[] = ['avg' => $r['avgMs'], 'n' => $r['searches']];
+            if (($r['searches'] ?? 0) > 0) {
+                $weightedAvgNum += $r['avgMs'] * $r['searches'];
+                $weightedAvgDen += $r['searches'];
             }
         }
-        $avgDuration = 0;
-        if ($allDurations) {
-            $num = 0; $den = 0;
-            foreach ($allDurations as $d) { $num += $d['avg'] * $d['n']; $den += $d['n']; }
-            $avgDuration = $den > 0 ? (int)round($num / $den) : 0;
-        }
+        $avgDuration = $weightedAvgDen > 0 ? (int)round($weightedAvgNum / $weightedAvgDen) : 0;
 
-        $errors30 = $count($series, 'errors');
-        $searches30 = $count($series, 'searches');
+        $errors = $sum($series, 'errors');
+        $searches = $sum($series, 'searches');
 
         return [
-            'searches30' => $searches30,
+            'rangeDays' => $rangeDays,
+            'priorWindowDays' => $half,
+            'searches' => $searches,
             'searchesDelta' => $this->pctDelta($recentSearches, $priorSearches),
-            'cost30' => round($count($series, 'cost'), 4),
+            'cost' => round($sum($series, 'cost'), 2),
             'costDelta' => $this->pctDelta($recentCost, $priorCost),
             'avgDurationMs' => $avgDuration,
-            'errors30' => $errors30,
-            'errorRate30' => $searches30 > 0 ? round($errors30 / $searches30, 4) : 0.0,
+            'p95DurationMs' => $p95Duration,
+            'errors' => $errors,
+            'errorRate' => $searches > 0 ? round($errors / $searches, 4) : 0.0,
         ];
     }
 
@@ -139,34 +173,5 @@ class DashboardController extends Controller
             return $recent > 0 ? null : 0.0;
         }
         return round((($recent - $prior) / $prior) * 100, 1);
-    }
-
-    /**
-     * Composite 0–100 health score with per-factor breakdown for tooltips.
-     */
-    private function computeHealth(array $f): array
-    {
-        $factors = [];
-
-        $factors['apiKey'] = $f['apiKey'] ? 100 : 0;
-        $factors['db'] = $f['dbConnected'] ? 100 : 0;
-
-        $totalEntries = 0; $indexed = 0;
-        foreach ($f['coverage'] as $c) {
-            $totalEntries += (int)$c['total'];
-            $indexed += (int)$c['indexed'];
-        }
-        $factors['coverage'] = $totalEntries > 0 ? (int)round(($indexed / $totalEntries) * 100) : 0;
-
-        $factors['budget'] = (int)round((1 - min(1.0, $f['budgetRatio'])) * 100);
-        $factors['errors'] = (int)round((1 - min(1.0, $f['errorRate'] * 10)) * 100);
-
-        $score = (int)round(array_sum($factors) / count($factors));
-
-        return [
-            'score' => $score,
-            'factors' => $factors,
-            'level' => $score >= 80 ? 'good' : ($score >= 50 ? 'warn' : 'bad'),
-        ];
     }
 }
