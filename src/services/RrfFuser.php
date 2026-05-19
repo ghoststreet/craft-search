@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 /**
  * Pure Reciprocal Rank Fusion math.

@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch;
+namespace ghoststreet\craftsmartsearch;
 
 use Craft;
 use craft\base\Model;
@@ -14,30 +14,30 @@ use craft\services\Elements;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use craft\web\View;
-use ghoststreet\craftaisearch\assets\CraftSearchAsset;
-use ghoststreet\craftaisearch\assets\DashboardAsset;
-use ghoststreet\craftaisearch\assets\DataSyncAsset;
-use ghoststreet\craftaisearch\assets\DebugAsset;
-use ghoststreet\craftaisearch\assets\HistoryAsset;
-use ghoststreet\craftaisearch\assets\IndexMgmtAsset;
-use ghoststreet\craftaisearch\assets\InsightsAsset;
-use ghoststreet\craftaisearch\assets\PreviewAsset;
-use ghoststreet\craftaisearch\assets\SettingsAsset;
-use ghoststreet\craftaisearch\jobs\DeleteEntryJob;
-use ghoststreet\craftaisearch\jobs\IndexEntryJob;
-use ghoststreet\craftaisearch\models\Settings;
-use ghoststreet\craftaisearch\services\BM25Service;
-use ghoststreet\craftaisearch\services\DatabaseService;
-use ghoststreet\craftaisearch\services\EmbeddingService;
-use ghoststreet\craftaisearch\services\HistoryService;
-use ghoststreet\craftaisearch\services\HybridSearchService;
-use ghoststreet\craftaisearch\services\IndexingDebugService;
-use ghoststreet\craftaisearch\services\OpenAIClientFactory;
-use ghoststreet\craftaisearch\services\RagSearchService;
-use ghoststreet\craftaisearch\services\RateLimitService;
-use ghoststreet\craftaisearch\services\RecommendationsService;
-use ghoststreet\craftaisearch\services\SearchService;
-use ghoststreet\craftaisearch\variables\AiSearchVariable;
+use ghoststreet\craftsmartsearch\assets\SmartSearchAsset;
+use ghoststreet\craftsmartsearch\assets\DashboardAsset;
+use ghoststreet\craftsmartsearch\assets\DataSyncAsset;
+use ghoststreet\craftsmartsearch\assets\DebugAsset;
+use ghoststreet\craftsmartsearch\assets\HistoryAsset;
+use ghoststreet\craftsmartsearch\assets\IndexMgmtAsset;
+use ghoststreet\craftsmartsearch\assets\InsightsAsset;
+use ghoststreet\craftsmartsearch\assets\PreviewAsset;
+use ghoststreet\craftsmartsearch\assets\SettingsAsset;
+use ghoststreet\craftsmartsearch\jobs\DeleteEntryJob;
+use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
+use ghoststreet\craftsmartsearch\models\Settings;
+use ghoststreet\craftsmartsearch\services\BM25Service;
+use ghoststreet\craftsmartsearch\services\DatabaseService;
+use ghoststreet\craftsmartsearch\services\EmbeddingService;
+use ghoststreet\craftsmartsearch\services\HistoryService;
+use ghoststreet\craftsmartsearch\services\HybridSearchService;
+use ghoststreet\craftsmartsearch\services\IndexingDebugService;
+use ghoststreet\craftsmartsearch\services\OpenAIClientFactory;
+use ghoststreet\craftsmartsearch\services\RagSearchService;
+use ghoststreet\craftsmartsearch\services\RateLimitService;
+use ghoststreet\craftsmartsearch\services\RecommendationsService;
+use ghoststreet\craftsmartsearch\services\SearchService;
+use ghoststreet\craftsmartsearch\variables\SmartSearchVariable;
 use yii\base\Event;
 use yii\log\FileTarget;
 use yii\web\Response;
@@ -47,7 +47,7 @@ use yii\web\Response;
  * Provides vector-based search, BM25 keyword scoring, hybrid RRF fusion, and RAG summaries
  * backed by PostgreSQL with pgvector and the OpenAI embeddings API.
  *
- * @method static AiSearch getInstance()
+ * @method static SmartSearch getInstance()
  * @author Ghost Street <dev@ghost.st>
  * @copyright Ghost Street
  * @license https://craftcms.github.io/license/ Craft License
@@ -63,7 +63,7 @@ use yii\web\Response;
  * @property-read HistoryService $historyService
  * @property-read RecommendationsService $recommendationsService
  */
-class AiSearch extends Plugin
+class SmartSearch extends Plugin
 {
     public string $schemaVersion = '1.0.0';
     public bool $hasCpSettings = true;
@@ -81,7 +81,7 @@ class AiSearch extends Plugin
     }
 
     /**
-     * Register a custom log target for ai-search logs
+     * Register a custom log target for smart-search logs
      * and exclude from default targets to prevent duplicate logging.
      */
     private function registerLogTarget(): void
@@ -89,20 +89,20 @@ class AiSearch extends Plugin
         $dispatcher = Craft::getLogger()->dispatcher;
 
         $logTarget = new FileTarget([
-            'logFile' => Craft::getAlias('@storage/logs/ai-search.log'),
-            'categories' => ['ai-search'],
+            'logFile' => Craft::getAlias('@storage/logs/smart-search.log'),
+            'categories' => ['smart-search'],
             'logVars' => [],
         ]);
 
-        $dispatcher->targets['ai-search'] = $logTarget;
+        $dispatcher->targets['smart-search'] = $logTarget;
 
         foreach ($dispatcher->targets as $key => $target) {
-            if ($key === 'ai-search') {
+            if ($key === 'smart-search') {
                 continue;
             }
 
             if ($target instanceof FileTarget) {
-                $target->except = array_merge($target->except ?? [], ['ai-search']);
+                $target->except = array_merge($target->except ?? [], ['smart-search']);
             }
         }
     }
@@ -146,7 +146,7 @@ class AiSearch extends Plugin
     public function getCpNavItem(): ?array
     {
         $item = parent::getCpNavItem();
-        $item['label'] = 'AI Search';
+        $item['label'] = 'Smart Search';
 
         $subNav = [];
 
@@ -155,23 +155,23 @@ class AiSearch extends Plugin
             && !empty($settings->getPostgresqlHost())
             && !empty($settings->getPostgresqlDatabase());
 
-        $subNav['dashboard'] = ['label' => 'Dashboard', 'url' => 'ai-search'];
+        $subNav['dashboard'] = ['label' => 'Dashboard', 'url' => 'smart-search'];
         if ($this->historyService->detailsCount() > 0) {
-            $subNav['insights'] = ['label' => 'Insights', 'url' => 'ai-search/insights'];
+            $subNav['insights'] = ['label' => 'Insights', 'url' => 'smart-search/insights'];
         }
         if ($connectionsConfigured) {
-            $subNav['index'] = ['label' => 'Index', 'url' => 'ai-search/index'];
+            $subNav['index'] = ['label' => 'Index', 'url' => 'smart-search/index'];
 
             $stats = $this->databaseService->getStatsSafe();
             $hasIndexedEntries = (int)($stats['entryCount'] ?? 0) > 0;
 
             if ($hasIndexedEntries) {
-                $subNav['preview'] = ['label' => 'Preview', 'url' => 'ai-search/preview'];
+                $subNav['preview'] = ['label' => 'Preview', 'url' => 'smart-search/preview'];
             }
         }
 
         if (Craft::$app->getConfig()->general->allowAdminChanges && Craft::$app->user->getIsAdmin()) {
-            $subNav['settings'] = ['label' => 'Settings', 'url' => 'ai-search/settings'];
+            $subNav['settings'] = ['label' => 'Settings', 'url' => 'smart-search/settings'];
         }
 
         $item['subnav'] = $subNav;
@@ -182,7 +182,7 @@ class AiSearch extends Plugin
     public function getSettingsResponse(): Response
     {
         return Craft::$app->controller->redirect(
-            UrlHelper::cpUrl('ai-search')
+            UrlHelper::cpUrl('smart-search')
         );
     }
 
@@ -232,10 +232,10 @@ class AiSearch extends Plugin
             UrlManager::class,
             UrlManager::EVENT_REGISTER_SITE_URL_RULES,
             function(RegisterUrlRulesEvent $event) {
-                $event->rules['api/hybrid-search'] = 'ai-search/search/semantic-search';
-                $event->rules['api/craft-search'] = 'ai-search/search/craft-search';
-                $event->rules['api/rag-search'] = 'ai-search/search/rag-search';
-                $event->rules['api/rag-search/stream'] = 'ai-search/search/rag-stream';
+                $event->rules['api/smart-search'] = 'smart-search/search/index';
+                $event->rules['api/smart-search/hybrid'] = 'smart-search/search/semantic-search';
+                $event->rules['api/smart-search/rag'] = 'smart-search/search/rag-search';
+                $event->rules['api/smart-search/rag/stream'] = 'smart-search/search/rag-stream';
             }
         );
 
@@ -243,36 +243,36 @@ class AiSearch extends Plugin
             UrlManager::class,
             UrlManager::EVENT_REGISTER_CP_URL_RULES,
             function(RegisterUrlRulesEvent $event) {
-                $event->rules['ai-search'] = 'ai-search/dashboard/index';
+                $event->rules['smart-search'] = 'smart-search/dashboard/index';
 
-                $event->rules['ai-search/settings'] = 'ai-search/settings/index';
+                $event->rules['smart-search/settings'] = 'smart-search/settings/index';
 
-                $event->rules['POST ai-search/settings/save'] = 'ai-search/settings/save';
-                $event->rules['POST ai-search/settings/test-database-connection'] = 'ai-search/settings/test-database-connection';
-                $event->rules['POST ai-search/settings/test-api-key'] = 'ai-search/settings/test-api-key';
+                $event->rules['POST smart-search/settings/save'] = 'smart-search/settings/save';
+                $event->rules['POST smart-search/settings/test-database-connection'] = 'smart-search/settings/test-database-connection';
+                $event->rules['POST smart-search/settings/test-api-key'] = 'smart-search/settings/test-api-key';
 
                 // Index management (consolidated from data-sync + debug)
-                $event->rules['ai-search/index'] = 'ai-search/index/index';
-                $event->rules['ai-search/index/entry'] = 'ai-search/index/entry';
-                $event->rules['POST ai-search/index/sync'] = 'ai-search/index/sync';
-                $event->rules['POST ai-search/index/cancel-sync'] = 'ai-search/index/cancel-sync';
-                $event->rules['POST ai-search/index/get-stats'] = 'ai-search/index/get-stats';
+                $event->rules['smart-search/index'] = 'smart-search/index/index';
+                $event->rules['smart-search/index/entry'] = 'smart-search/index/entry';
+                $event->rules['POST smart-search/index/sync'] = 'smart-search/index/sync';
+                $event->rules['POST smart-search/index/cancel-sync'] = 'smart-search/index/cancel-sync';
+                $event->rules['POST smart-search/index/get-stats'] = 'smart-search/index/get-stats';
 
                 // Insights (consolidated from history + keywords)
-                $event->rules['ai-search/insights'] = 'ai-search/insights/index';
-                $event->rules['ai-search/insights/<id:\\d+>'] = 'ai-search/insights/detail';
-                $event->rules['POST ai-search/insights/prune'] = 'ai-search/insights/prune';
-                $event->rules['POST ai-search/insights/clear'] = 'ai-search/insights/clear';
+                $event->rules['smart-search/insights'] = 'smart-search/insights/index';
+                $event->rules['smart-search/insights/<id:\\d+>'] = 'smart-search/insights/detail';
+                $event->rules['POST smart-search/insights/prune'] = 'smart-search/insights/prune';
+                $event->rules['POST smart-search/insights/clear'] = 'smart-search/insights/clear';
 
                 // Preview
-                $event->rules['ai-search/preview'] = 'ai-search/preview/index';
+                $event->rules['smart-search/preview'] = 'smart-search/preview/index';
 
                 // Legacy redirects
-                $event->rules['ai-search/data-sync'] = 'ai-search/index/legacy-redirect';
-                $event->rules['ai-search/debug'] = 'ai-search/index/legacy-redirect';
-                $event->rules['ai-search/history'] = 'ai-search/insights/legacy-redirect';
-                $event->rules['ai-search/history/keywords'] = 'ai-search/insights/legacy-redirect';
-                $event->rules['ai-search/history/<id:\\d+>'] = 'ai-search/insights/detail';
+                $event->rules['smart-search/data-sync'] = 'smart-search/index/legacy-redirect';
+                $event->rules['smart-search/debug'] = 'smart-search/index/legacy-redirect';
+                $event->rules['smart-search/history'] = 'smart-search/insights/legacy-redirect';
+                $event->rules['smart-search/history/keywords'] = 'smart-search/insights/legacy-redirect';
+                $event->rules['smart-search/history/<id:\\d+>'] = 'smart-search/insights/detail';
             }
         );
 
@@ -280,7 +280,7 @@ class AiSearch extends Plugin
             CraftVariable::class,
             CraftVariable::EVENT_INIT,
             function(Event $event) {
-                $event->sender->set('aiSearch', AiSearchVariable::class);
+                $event->sender->set('smartSearch', SmartSearchVariable::class);
             }
         );
 
@@ -302,20 +302,20 @@ class AiSearch extends Plugin
                     return;
                 }
                 $template = (string)$event->template;
-                if (!str_starts_with($template, 'ai-search/')) {
+                if (!str_starts_with($template, 'smart-search/')) {
                     return;
                 }
 
                 $view = Craft::$app->getView();
                 $map = [
-                    'ai-search/preview'    => PreviewAsset::class,
-                    'ai-search/index-mgmt' => IndexMgmtAsset::class,
-                    'ai-search/insights'   => InsightsAsset::class,
-                    'ai-search/debug'      => DebugAsset::class,
-                    'ai-search/history'    => HistoryAsset::class,
-                    'ai-search/settings'   => SettingsAsset::class,
-                    'ai-search/data-sync'  => DataSyncAsset::class,
-                    'ai-search/index'      => DashboardAsset::class,
+                    'smart-search/preview'    => PreviewAsset::class,
+                    'smart-search/index-mgmt' => IndexMgmtAsset::class,
+                    'smart-search/insights'   => InsightsAsset::class,
+                    'smart-search/debug'      => DebugAsset::class,
+                    'smart-search/history'    => HistoryAsset::class,
+                    'smart-search/settings'   => SettingsAsset::class,
+                    'smart-search/data-sync'  => DataSyncAsset::class,
+                    'smart-search/index'      => DashboardAsset::class,
                 ];
 
                 foreach ($map as $prefix => $bundle) {
@@ -325,7 +325,7 @@ class AiSearch extends Plugin
                     }
                 }
 
-                $view->registerAssetBundle(CraftSearchAsset::class);
+                $view->registerAssetBundle(SmartSearchAsset::class);
             }
         );
     }

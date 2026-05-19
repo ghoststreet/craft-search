@@ -1,12 +1,12 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\web\Controller;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\helpers\ErrorMapper;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
+use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
@@ -20,7 +20,7 @@ class DebugController extends Controller
         $this->requireAdmin();
 
         $request = Craft::$app->getRequest();
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
         $settings = $plugin->getSettings();
 
         $filters = [
@@ -38,7 +38,7 @@ class DebugController extends Controller
             $error = ErrorMapper::present($e, 'debug.getEntryRows', ['siteId' => $filters['siteId']]);
         }
 
-        return $this->renderTemplate('ai-search/debug/index', [
+        return $this->renderTemplate('smart-search/debug/index', [
             'plugin' => $plugin,
             'settings' => $settings,
             'result' => $result,
@@ -58,7 +58,7 @@ class DebugController extends Controller
         $elementId = (int)$request->getRequiredQueryParam('elementId');
         $siteId = (int)$request->getRequiredQueryParam('siteId');
 
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
 
         try {
             $inspection = $plugin->indexingDebugService->inspectElement($elementId, $siteId);
@@ -72,7 +72,7 @@ class DebugController extends Controller
             throw new NotFoundHttpException('Entry not found');
         }
 
-        return $this->renderTemplate('ai-search/debug/entry', [
+        return $this->renderTemplate('smart-search/debug/entry', [
             'plugin' => $plugin,
             'inspection' => $inspection,
             'error' => $error,

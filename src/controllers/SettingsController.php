@@ -1,12 +1,12 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\helpers\App;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\ErrorCode;
-use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
+use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
 use yii\web\Response;
 
 class SettingsController extends BaseApiController
@@ -17,9 +17,9 @@ class SettingsController extends BaseApiController
     {
         $this->requireAdmin();
 
-        return $this->renderTemplate('ai-search/settings', [
-            'plugin' => AiSearch::getInstance(),
-            'settings' => AiSearch::getInstance()->getSettings(),
+        return $this->renderTemplate('smart-search/settings', [
+            'plugin' => SmartSearch::getInstance(),
+            'settings' => SmartSearch::getInstance()->getSettings(),
             'selectedSubnavItem' => 'settings',
         ]);
     }
@@ -29,7 +29,7 @@ class SettingsController extends BaseApiController
         $this->requireAdmin();
         $this->requirePostRequest();
 
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
         $settings = $plugin->getSettings();
         $settings->setAttributes(Craft::$app->getRequest()->getBodyParam('settings', []));
 
@@ -38,14 +38,14 @@ class SettingsController extends BaseApiController
         ) {
             return $this->asModelFailure(
                 $settings,
-                Craft::t('ai-search', 'Could not save settings.'),
+                Craft::t('smart-search', 'Could not save settings.'),
                 'settings',
             );
         }
 
         return $this->asModelSuccess(
             $settings,
-            Craft::t('ai-search', 'Settings saved.'),
+            Craft::t('smart-search', 'Settings saved.'),
             'settings',
         );
     }
@@ -57,7 +57,7 @@ class SettingsController extends BaseApiController
         $this->requireAcceptsJson();
 
         $request = Craft::$app->getRequest();
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
 
         $config = [
             'host'     => App::parseEnv((string) $request->getBodyParam('host', '')) ?: null,
@@ -69,7 +69,7 @@ class SettingsController extends BaseApiController
         ];
 
         try {
-            $db = AiSearch::getInstance()->databaseService;
+            $db = SmartSearch::getInstance()->databaseService;
             $pdo = $db->connectWithConfig($config);
 
             $stmt = $pdo->prepare('SELECT 1 FROM pg_tables WHERE schemaname = :schema AND tablename = :table');
@@ -126,7 +126,7 @@ class SettingsController extends BaseApiController
         }
 
         try {
-            $client = AiSearch::getInstance()->openAIClientFactory->buildClient($resolved);
+            $client = SmartSearch::getInstance()->openAIClientFactory->buildClient($resolved);
             $client->models()->list();
             return $this->asJson(['success' => true, 'requestId' => $this->requestId]);
         } catch (\Throwable $e) {

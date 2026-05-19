@@ -1,14 +1,14 @@
 <?php
 
-namespace ghoststreet\craftaisearch\exceptions;
+namespace ghoststreet\craftsmartsearch\exceptions;
 
 use RuntimeException;
 
 /**
- * Base exception for all AI Search plugin errors.
+ * Base exception for all Smart Search plugin errors.
  * Extend this class for domain-specific exceptions.
  */
-abstract class AiSearchException extends RuntimeException
+abstract class SmartSearchException extends RuntimeException
 {
     protected ErrorCode $errorCode = ErrorCode::UNKNOWN;
 

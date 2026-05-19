@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var ns = window.CraftSearch;
+    var ns = window.SmartSearch;
     var DOM = ns.core.DOM;
     var errors = ns.core.errors;
 
@@ -64,7 +64,7 @@
         if (!btn) return;
         var result = DOM.find('test-db-result');
 
-        wireTest('test-db', 'test-db-result', 'ai-search/settings/test-database-connection', 'Connected successfully.', readDbFields);
+        wireTest('test-db', 'test-db-result', 'smart-search/settings/test-database-connection', 'Connected successfully.', readDbFields);
 
         function allFilled() {
             for (var i = 0; i < DB_REQUIRED.length; i++) {
@@ -101,7 +101,7 @@
         var input = DOM.find('openai-api-key');
         var result = DOM.find('test-api-key-result');
 
-        wireTest('test-api-key', 'test-api-key-result', 'ai-search/settings/test-api-key', 'API key is valid.', function () {
+        wireTest('test-api-key', 'test-api-key-result', 'smart-search/settings/test-api-key', 'API key is valid.', function () {
             return { apiKey: valueOf('openai-api-key') };
         });
 

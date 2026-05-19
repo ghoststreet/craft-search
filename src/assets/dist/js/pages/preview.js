@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var ns = window.CraftSearch;
+    var ns = window.SmartSearch;
     var DOM = ns.core.DOM;
 
     var ragEventSource = null;
@@ -145,7 +145,7 @@
         if (!query) { reset(resultsEl, errorEl); return; }
 
         setLoading(resultsEl, errorEl);
-        postSearch('ai-search/search/semantic-search', query, getSiteId())
+        postSearch('smart-search/search/semantic-search', query, getSiteId())
             .then(function (data) { renderCards(resultsEl, data.semanticResults || []); })
             .catch(function (err) { showError(resultsEl, errorEl, err.message); });
     }
@@ -158,7 +158,7 @@
         if (!query) { reset(resultsEl, errorEl); return; }
 
         setLoading(resultsEl, errorEl);
-        postSearch('ai-search/search/craft-search', query, getSiteId())
+        postSearch('smart-search/search/index', query, getSiteId())
             .then(function (data) { renderCards(resultsEl, data.results || []); })
             .catch(function (err) { showError(resultsEl, errorEl, err.message); });
     }
@@ -190,7 +190,7 @@
         var csrf = csrfParam();
         if (csrf) params += '&' + csrf;
 
-        var url = streamActionUrl('ai-search/search/rag-stream', params);
+        var url = streamActionUrl('smart-search/search/rag-stream', params);
         var summaryText = '';
 
         ragEventSource = new EventSource(url);

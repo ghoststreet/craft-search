@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\base\ElementInterface;
@@ -14,16 +14,16 @@ use craft\elements\Entry;
 use craft\fields\Link;
 use craft\fields\Time;
 use DateTime;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\exceptions\EmbeddingException;
-use ghoststreet\craftaisearch\exceptions\SearchException;
-use ghoststreet\craftaisearch\helpers\ContentPatterns;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\helpers\TextValidator;
-use ghoststreet\craftaisearch\helpers\TokenEstimator;
-use ghoststreet\craftaisearch\models\Settings;
-use ghoststreet\craftaisearch\helpers\UsageTracker;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
+use ghoststreet\craftsmartsearch\exceptions\EmbeddingException;
+use ghoststreet\craftsmartsearch\exceptions\SearchException;
+use ghoststreet\craftsmartsearch\helpers\ContentPatterns;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\TextValidator;
+use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
+use ghoststreet\craftsmartsearch\models\Settings;
+use ghoststreet\craftsmartsearch\helpers\UsageTracker;
 use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
 use PDOException;
@@ -51,7 +51,7 @@ class EmbeddingService extends Component
      */
     private function getOpenAIClient(): Client
     {
-        return AiSearch::getInstance()->openAIClientFactory->getClient();
+        return SmartSearch::getInstance()->openAIClientFactory->getClient();
     }
 
     /**
@@ -93,7 +93,7 @@ class EmbeddingService extends Component
             throw EmbeddingException::emptyText();
         }
 
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
         $model = $model ?? $settings->hybridEmbeddingModel;
 
         $normalizedText = TextValidator::sanitizeEmbeddingInput($text);
@@ -515,7 +515,7 @@ class EmbeddingService extends Component
      */
     private function chunkText(string $text): array
     {
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
 
         $estimatedTokens = TokenEstimator::estimateTokens($text);
 
@@ -665,7 +665,7 @@ class EmbeddingService extends Component
         $chunks = $this->chunkText($text);
         $totalChunks = count($chunks);
 
-        $fingerprint = AiSearch::getInstance()->databaseService->getStoredEntryFingerprint($element->id, $element->siteId);
+        $fingerprint = SmartSearch::getInstance()->databaseService->getStoredEntryFingerprint($element->id, $element->siteId);
         if ($fingerprint['hash'] === $hash && $fingerprint['chunkCount'] === $totalChunks) {
             Logger::debug('Skipping unchanged entry', [
                 'entryId' => $element->id,
@@ -699,7 +699,7 @@ class EmbeddingService extends Component
      * Uses an upsert (INSERT ... ON CONFLICT DO UPDATE) so re-indexing the same
      * chunk overwrites the previous vector and content.
      *
-     * @throws \ghoststreet\craftaisearch\exceptions\DatabaseException If database connection fails or query fails
+     * @throws \ghoststreet\craftsmartsearch\exceptions\DatabaseException If database connection fails or query fails
      */
     public function storeVector(
         int $elementId,
@@ -710,7 +710,7 @@ class EmbeddingService extends Component
         ?string $content = null,
         ?string $contentHash = null,
     ): void {
-        $databaseService = AiSearch::getInstance()->databaseService;
+        $databaseService = SmartSearch::getInstance()->databaseService;
         $db = $databaseService->getConnection();
         $table = $databaseService->getQualifiedTable();
 
@@ -741,7 +741,7 @@ class EmbeddingService extends Component
     /**
      * Delete all vectors for an element, optionally scoped to a specific site.
      *
-     * @throws \ghoststreet\craftaisearch\exceptions\DatabaseException If database connection fails or query fails
+     * @throws \ghoststreet\craftsmartsearch\exceptions\DatabaseException If database connection fails or query fails
      */
     /**
      * Delete chunk rows whose chunkIndex is at or above the current total.
@@ -751,12 +751,12 @@ class EmbeddingService extends Component
      * (elementId, siteId, chunkIndex), so chunk slots beyond the new tail
      * would otherwise persist with embeddings that no longer match any text.
      *
-     * @throws \ghoststreet\craftaisearch\exceptions\DatabaseException
+     * @throws \ghoststreet\craftsmartsearch\exceptions\DatabaseException
      */
     private function deleteExcessChunks(int $elementId, int $siteId, int $totalChunks): void
     {
-        $db = AiSearch::getInstance()->databaseService->getConnection();
-        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
+        $db = SmartSearch::getInstance()->databaseService->getConnection();
+        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
 
         try {
             $stmt = $db->prepare("DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId AND \"chunkIndex\" >= :totalChunks");
@@ -773,8 +773,8 @@ class EmbeddingService extends Component
 
     public function deleteVector(int $elementId, ?int $siteId = null): void
     {
-        $db = AiSearch::getInstance()->databaseService->getConnection();
-        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
+        $db = SmartSearch::getInstance()->databaseService->getConnection();
+        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
 
         try {
             if ($siteId !== null) {

@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    window.CraftSearch.core.Utils = {
+    window.SmartSearch.core.Utils = {
         debounce: function (fn, wait) {
             var timer;
             return function () {

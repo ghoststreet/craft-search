@@ -1,14 +1,14 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\elements\Entry;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\helpers\ErrorMapper;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\jobs\IndexEntryJob;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
+use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
 use yii\web\Response;
 
 /**
@@ -25,7 +25,7 @@ class DataSyncController extends BaseApiController
     {
         $this->requireAdmin();
 
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
         $settings = $plugin->getSettings();
         $db = $plugin->databaseService;
         $stats = $db->getStatsSafe();
@@ -44,11 +44,11 @@ class DataSyncController extends BaseApiController
         ];
         $setup['ready'] = $setup['credentials'] && $setup['connection'] && $setup['schema'] && $setup['openaiKey'];
 
-        return $this->renderTemplate('ai-search/data-sync', [
+        return $this->renderTemplate('smart-search/data-sync', [
             'plugin' => $plugin,
             'stats' => $stats,
             'setup' => $setup,
-            'syncStarted' => Craft::$app->getSession()->getFlash('ai-search-sync-started', false),
+            'syncStarted' => Craft::$app->getSession()->getFlash('smart-search-sync-started', false),
         ]);
     }
 
@@ -58,7 +58,7 @@ class DataSyncController extends BaseApiController
      *
      * Search returns empty results until the queue drains. Steady-state drift
      * between Craft and the vectors table is handled by the live element
-     * save/delete event handlers in AiSearch::registerEventHandlers(); this
+     * save/delete event handlers in SmartSearch::registerEventHandlers(); this
      * action is the recovery / initial-load path.
      *
      * @throws DatabaseException If the operation fails (caught internally for UI feedback)
@@ -71,7 +71,7 @@ class DataSyncController extends BaseApiController
         try {
             Logger::info('Starting wipe-and-reindex operation');
 
-            AiSearch::getInstance()->databaseService->clearAllVectors();
+            SmartSearch::getInstance()->databaseService->clearAllVectors();
 
             $entries = Entry::find()
                 ->siteId('*')
@@ -94,21 +94,21 @@ class DataSyncController extends BaseApiController
             $count = count($entries);
             Logger::info('Queued entries for sync', ['count' => $count]);
 
-            Craft::$app->getSession()->setFlash('ai-search-sync-started', true);
+            Craft::$app->getSession()->setFlash('smart-search-sync-started', true);
             Craft::$app->getSession()->setNotice(
-                Craft::t('ai-search', 'Search index cleared. {count} entries queued for reindexing. Search results will return as the queue processes.', [
+                Craft::t('smart-search', 'Search index cleared. {count} entries queued for reindexing. Search results will return as the queue processes.', [
                     'count' => $count,
                 ])
             );
         } catch (DatabaseException $e) {
             Craft::$app->getSession()->setError(
-                Craft::t('ai-search', 'Failed to start sync: {error}', [
+                Craft::t('smart-search', 'Failed to start sync: {error}', [
                     'error' => ErrorMapper::present($e, 'syncReindex'),
                 ])
             );
         }
 
-        return $this->redirect('ai-search/data-sync');
+        return $this->redirect('smart-search/data-sync');
     }
 
     /**
@@ -120,7 +120,7 @@ class DataSyncController extends BaseApiController
         $this->requireAcceptsJson();
 
         try {
-            $stats = AiSearch::getInstance()->databaseService->getStats(false);
+            $stats = SmartSearch::getInstance()->databaseService->getStats(false);
             $queueTotal = Craft::$app->getQueue()->getTotalWaiting();
 
             return $this->asJson([

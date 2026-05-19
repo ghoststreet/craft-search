@@ -1,6 +1,6 @@
 {% extends "_layouts/cp" %}
 
-{% set title = 'AI Search' %}
+{% set title = 'Smart Search' %}
 
 {# Native CP layout tabs — _layouts/cp.twig reads the `tabs` and `selectedTab` vars
    and renders them in the page header via _includes/tabs.twig, identical to the
@@ -8,8 +8,8 @@
    plugin is set up (otherwise the onboarding card replaces everything). #}
 {% if setupComplete ?? false %}
     {% set tabs = {
-        quality: { label: 'Search Quality'|t('ai-search'), url: cpUrl('ai-search', { range: range, tab: 'quality' }) },
-        advanced: { label: 'Advanced'|t('ai-search'), url: cpUrl('ai-search', { range: range, tab: 'advanced' }) },
+        quality: { label: 'Search Quality'|t('smart-search'), url: cpUrl('smart-search', { range: range, tab: 'quality' }) },
+        advanced: { label: 'Advanced'|t('smart-search'), url: cpUrl('smart-search', { range: range, tab: 'advanced' }) },
     } %}
     {% set selectedTab = tab %}
 {% endif %}
@@ -44,7 +44,7 @@
 <div class="dashboard">
 
     {% if not setupComplete %}
-        {% include 'ai-search/_dashboard/_onboarding' with { settings: settings, stats: stats } only %}
+        {% include 'smart-search/_dashboard/_onboarding' with { settings: settings, stats: stats } only %}
 
     {% else %}
 
@@ -60,13 +60,13 @@
         {# Range picker — sits in its own toolbar row below the native tabs. #}
         <div class="flex flex-justify">
             <span></span>
-            {% include 'ai-search/_dashboard/_range-picker' with { range: range, allowedRanges: allowedRanges, tab: tab } only %}
+            {% include 'smart-search/_dashboard/_range-picker' with { range: range, allowedRanges: allowedRanges, tab: tab } only %}
         </div>
 
         {% if tab == 'advanced' %}
-            {% include 'ai-search/_dashboard/_ops-tab' with _context only %}
+            {% include 'smart-search/_dashboard/_ops-tab' with _context only %}
         {% else %}
-            {% include 'ai-search/_dashboard/_quality-tab' with _context only %}
+            {% include 'smart-search/_dashboard/_quality-tab' with _context only %}
         {% endif %}
 
         {# Data freshness disclosure — surface server timezone and "includes admin searches" caveat. #}

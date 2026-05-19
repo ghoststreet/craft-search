@@ -15,7 +15,7 @@
         minNDelta         int
         minDaysBudgetEta  int    days of data required before the budget ETA is meaningful
 #}
-{% import 'ai-search/_components/delta-tag' as ui %}
+{% import 'smart-search/_components/delta-tag' as ui %}
 
 <div class="kpi-grid kpi-grid--3">
     <div class="kpi-card">
@@ -68,7 +68,7 @@
             {% if stats.lastIndexed %}
                 Last sync {{ stats.lastIndexed|date('M j, g:i A') }}
             {% else %}
-                Never synced — <a href="{{ cpUrl('ai-search/index') }}">run a sync →</a>
+                Never synced — <a href="{{ cpUrl('smart-search/index') }}">run a sync →</a>
             {% endif %}
         </div>
     </div>

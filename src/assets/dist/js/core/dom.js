@@ -8,7 +8,7 @@
         return '[' + attr + '="' + name + '"]';
     }
 
-    window.CraftSearch.core.DOM = {
+    window.SmartSearch.core.DOM = {
         targetAttr: ATTR_TARGET,
         controlAttr: ATTR_CONTROL,
         actionAttr: ATTR_ACTION,

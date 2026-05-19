@@ -10,7 +10,7 @@
 <div class="btngroup" role="group" aria-label="Date range">
     {% for r in allowedRanges %}
         <a class="btn small{% if r == range %} is-active{% endif %}"
-           href="{{ cpUrl('ai-search', { range: r, tab: tab }) }}"
+           href="{{ cpUrl('smart-search', { range: r, tab: tab }) }}"
            {% if r == range %}aria-current="page"{% endif %}>{{ r }}d</a>
     {% endfor %}
 </div>

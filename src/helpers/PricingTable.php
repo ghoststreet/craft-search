@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch\helpers;
+namespace ghoststreet\craftsmartsearch\helpers;
 
 /**
  * Static OpenAI pricing table (USD per 1M tokens).

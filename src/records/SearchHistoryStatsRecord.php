@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch\records;
+namespace ghoststreet\craftsmartsearch\records;
 
 use craft\db\ActiveRecord;
 

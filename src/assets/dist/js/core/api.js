@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    var ns = window.CraftSearch;
+    var ns = window.SmartSearch;
 
     function csrfHeaders() {
         var headers = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };

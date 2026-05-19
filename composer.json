@@ -1,6 +1,6 @@
 {
-  "name": "ghost-street/craft-ai-search",
-  "description": "AI-powered hybrid and RAG search for Craft CMS using OpenAI embeddings and PostgreSQL pgvector.",
+  "name": "ghost-street/craft-smart-search",
+  "description": "Smart Search: hybrid and RAG search for Craft CMS using OpenAI embeddings and PostgreSQL pgvector.",
   "type": "craft-plugin",
   "license": "proprietary",
   "support": {
@@ -20,15 +20,15 @@
   },
   "autoload": {
     "psr-4": {
-      "ghoststreet\\craftaisearch\\": "src/"
+      "ghoststreet\\craftsmartsearch\\": "src/"
     }
   },
   "extra": {
-    "handle": "ai-search",
-    "name": "AI Search",
+    "handle": "smart-search",
+    "name": "Smart Search",
     "developer": "Ghost Street",
-    "documentationUrl": "https://github.com/ghost-street/craft-search",
-    "class": "ghoststreet\\craftaisearch\\AiSearch"
+    "documentationUrl": "https://github.com/ghost-street/craft-smart-search",
+    "class": "ghoststreet\\craftsmartsearch\\SmartSearch"
   },
   "scripts": {
     "check-cs": "ecs check --ansi",

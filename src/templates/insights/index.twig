@@ -1,5 +1,5 @@
 {% extends "_layouts/cp" %}
-{% import 'ai-search/_components/filter-fields' as f %}
+{% import 'smart-search/_components/filter-fields' as f %}
 
 {% set title = 'Insights' %}
 {% set selectedSubnavItem = 'insights' %}
@@ -9,10 +9,10 @@
 {% set tabParams = { days: days, siteId: siteId } %}
 
 {% set tabs = {
-    queries:        { label: 'Top queries',  url: cpUrl('ai-search/insights', tabParams|merge({ tab: 'queries' })) },
-    'zero-results': { label: 'Zero results', url: cpUrl('ai-search/insights', tabParams|merge({ tab: 'zero-results' })) },
-    trending:       { label: 'Trending',     url: cpUrl('ai-search/insights', tabParams|merge({ tab: 'trending' })) },
-    history:        { label: 'History log',  url: cpUrl('ai-search/insights', tabParams|merge({ tab: 'history' })) },
+    queries:        { label: 'Top queries',  url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'queries' })) },
+    'zero-results': { label: 'Zero results', url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'zero-results' })) },
+    trending:       { label: 'Trending',     url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'trending' })) },
+    history:        { label: 'History log',  url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'history' })) },
 } %}
 {% set selectedTab = tab %}
 
@@ -58,7 +58,7 @@
     {% endif %}
 
     <div class="filter-bar">
-        <form method="get" action="{{ cpUrl('ai-search/insights') }}" class="filter-bar__form">
+        <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="filter-bar__form">
             <input type="hidden" name="tab" value="{{ tab }}">
             <div class="filter-bar__group">
                 {{ f.daysSelect(days, 'Time range') }}
@@ -73,7 +73,7 @@
         {% if tab == 'history' and currentUser.admin %}
             <form method="post" class="filter-bar__spacer" data-craftsearch-confirm="Permanently delete all stored queries and result data? Token/cost statistics are preserved.">
                 {{ csrfInput() }}
-                {{ actionInput('ai-search/insights/clear') }}
+                {{ actionInput('smart-search/insights/clear') }}
                 <button type="submit" class="btn" data-icon="trash"{% if detailsCount == 0 %} disabled{% endif %}>Clear history ({{ detailsCount }})</button>
             </form>
         {% endif %}
@@ -119,10 +119,10 @@
             <div class="zilch small">No queries recorded.</div>
         {% endif %}
 
-        {% include 'ai-search/_components/pagination-cp' with {
+        {% include 'smart-search/_components/pagination-cp' with {
             currentPage: page.page,
             totalPages: page.pages,
-            path: 'ai-search/insights',
+            path: 'smart-search/insights',
             baseParams: { tab: 'queries', days: days, siteId: siteId },
         } only %}
 
@@ -159,10 +159,10 @@
             <div class="zilch small">All searches returned results.</div>
         {% endif %}
 
-        {% include 'ai-search/_components/pagination-cp' with {
+        {% include 'smart-search/_components/pagination-cp' with {
             currentPage: page.page,
             totalPages: page.pages,
-            path: 'ai-search/insights',
+            path: 'smart-search/insights',
             baseParams: { tab: 'zero-results', days: days, siteId: siteId },
         } only %}
 
@@ -198,24 +198,24 @@
             <div class="zilch small">Not enough data to spot trends.</div>
         {% endif %}
 
-        {% include 'ai-search/_components/pagination-cp' with {
+        {% include 'smart-search/_components/pagination-cp' with {
             currentPage: page.page,
             totalPages: page.pages,
-            path: 'ai-search/insights',
+            path: 'smart-search/insights',
             baseParams: { tab: 'trending', days: days, siteId: siteId },
         } only %}
 
     {% elseif tab == 'history' %}
-        {% include 'ai-search/_partials/search-history-table' with {
+        {% include 'smart-search/_partials/search-history-table' with {
             items: page.items,
-            urlPath: 'ai-search/insights',
+            urlPath: 'smart-search/insights',
             cachedTitle: 'Cached',
         } only %}
 
-        {% include 'ai-search/_components/pagination-cp' with {
+        {% include 'smart-search/_components/pagination-cp' with {
             currentPage: page.page,
             totalPages: page.pages,
-            path: 'ai-search/insights',
+            path: 'smart-search/insights',
             baseParams: { tab: 'history', days: days, siteId: siteId, type: filters.type, errorsOnly: filters.errorsOnly ? 1 : null },
         } only %}
     {% endif %}

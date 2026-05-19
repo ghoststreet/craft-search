@@ -1,17 +1,17 @@
 <?php
 
-namespace ghoststreet\craftaisearch\exceptions;
+namespace ghoststreet\craftsmartsearch\exceptions;
 
-use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use PDOException;
 use Throwable;
 
-class DatabaseException extends AiSearchException
+class DatabaseException extends SmartSearchException
 {
     public static function queryFailed(string $operation, Throwable $previous): self
     {
         if ($previous instanceof PDOException && ($previous->getCode() === '42P01' || str_contains($previous->getMessage(), 'SQLSTATE[42P01]'))) {
-            $settings = AiSearch::getInstance()?->getSettings();
+            $settings = SmartSearch::getInstance()?->getSettings();
             $table = $settings ? "{$settings->vectorsSchemaName}.{$settings->vectorsTableName}" : 'vector table';
             $e = new self("The vector table \"{$table}\" does not exist.", 0, $previous);
             $e->errorCode = ErrorCode::DATABASE_TABLE_MISSING;

@@ -1,9 +1,9 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\ConfigurationException;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\ConfigurationException;
 use GuzzleHttp\Client as GuzzleClient;
 use OpenAI;
 use OpenAI\Client;
@@ -36,7 +36,7 @@ class OpenAIClientFactory extends Component
             return $this->client;
         }
 
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
         $apiKey = $settings->getOpenaiApiKey();
 
         if ($apiKey === null || $apiKey === '') {

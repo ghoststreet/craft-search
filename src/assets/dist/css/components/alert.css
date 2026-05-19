@@ -1,12 +1,12 @@
 .alert {
-    background: var(--craft-search-danger-bg);
-    border: 1px solid var(--craft-search-danger-border);
-    color: var(--craft-search-danger-fg);
+    background: var(--smart-search-danger-bg);
+    border: 1px solid var(--smart-search-danger-border);
+    color: var(--smart-search-danger-fg);
     padding: 12px 16px;
     border-radius: 6px;
 }
 .alert--warn {
-    background: var(--craft-search-warn-bg);
-    border-color: var(--craft-search-warn-border);
-    color: var(--craft-search-warn-fg);
+    background: var(--smart-search-warn-bg);
+    border-color: var(--smart-search-warn-border);
+    color: var(--smart-search-warn-fg);
 }

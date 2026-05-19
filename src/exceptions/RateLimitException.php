@@ -1,8 +1,8 @@
 <?php
 
-namespace ghoststreet\craftaisearch\exceptions;
+namespace ghoststreet\craftsmartsearch\exceptions;
 
-class RateLimitException extends AiSearchException
+class RateLimitException extends SmartSearchException
 {
     public int $retryAfterSeconds = 60;
 

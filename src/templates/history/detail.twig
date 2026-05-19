@@ -13,8 +13,8 @@
 {% set confidenceColor = {high: 'green', medium: 'orange', low: 'red'}[row.confidence|default('medium')] %}
 
 {% set crumbs = [
-    { label: 'AI Search', url: cpUrl('ai-search') },
-    { label: 'History', url: cpUrl('ai-search/history') },
+    { label: 'Smart Search', url: cpUrl('smart-search') },
+    { label: 'History', url: cpUrl('smart-search/history') },
 ] %}
 
 {% block content %}
@@ -165,7 +165,7 @@
                     </details>
                     <p class="light history-detail__trace">
                         Trace this request in the log:<br>
-                        <code>tail -f storage/logs/ai-search.log | grep {{ row.requestId }}</code>
+                        <code>tail -f storage/logs/smart-search.log | grep {{ row.requestId }}</code>
                     </p>
                 </div>
             {% endif %}

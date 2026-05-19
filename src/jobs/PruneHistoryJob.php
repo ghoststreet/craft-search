@@ -1,9 +1,9 @@
 <?php
 
-namespace ghoststreet\craftaisearch\jobs;
+namespace ghoststreet\craftsmartsearch\jobs;
 
 use craft\queue\BaseJob;
-use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
  * Job to prune old search-history detail rows past the configured retention window.
@@ -15,7 +15,7 @@ class PruneHistoryJob extends BaseJob
 
     public function execute($queue): void
     {
-        AiSearch::getInstance()->historyService->pruneOlderThan($this->retentionDays);
+        SmartSearch::getInstance()->historyService->pruneOlderThan($this->retentionDays);
     }
 
     protected function defaultDescription(): ?string

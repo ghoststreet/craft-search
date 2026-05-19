@@ -1,11 +1,11 @@
 <?php
 
-namespace ghoststreet\craftaisearch\migrations;
+namespace ghoststreet\craftsmartsearch\migrations;
 
 use craft\db\Migration;
 
 /**
- * Install migration for AI Search plugin.
+ * Install migration for Smart Search plugin.
  *
  * Creates two history tables:
  *   - aisearch_history_stats:    permanent, never deleted by plugin (token/cost aggregates)

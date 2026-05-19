@@ -1,12 +1,12 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\db\Query;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\SearchException;
-use ghoststreet\craftaisearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\SearchException;
+use ghoststreet\craftsmartsearch\helpers\Logger;
 use PDOException;
 use yii\base\Component;
 
@@ -43,8 +43,8 @@ class BM25Service extends Component
      */
     public function calculateScores(string $query, ?int $siteId = null): array
     {
-        $db = AiSearch::getInstance()->databaseService->getConnection();
-        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
+        $db = SmartSearch::getInstance()->databaseService->getConnection();
+        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
         $normalizedQuery = trim($query);
 
         if ($normalizedQuery === '') {
@@ -86,7 +86,7 @@ class BM25Service extends Component
                 $params[':siteId'] = $siteId;
             }
 
-            $maxResults = AiSearch::getInstance()->getSettings()->maxSemanticResults;
+            $maxResults = SmartSearch::getInstance()->getSettings()->maxSemanticResults;
 
             // CTE + ROW_NUMBER keeps the *content* of the best-scoring chunk per
             // (elementId, siteId). Hybrid needs that content for excerpt rendering

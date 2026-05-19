@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    var ns = window.CraftSearch;
+    var ns = window.SmartSearch;
 
     ns.pages.dashboard = {
         init: function () {

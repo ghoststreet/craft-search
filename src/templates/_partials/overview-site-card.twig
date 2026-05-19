@@ -60,7 +60,7 @@
         </div>
         <form method="post">
             {{ csrfInput() }}
-            {{ actionInput('ai-search/index/sync') }}
+            {{ actionInput('smart-search/index/sync') }}
             <input type="hidden" name="siteId" value="{{ site.siteId }}">
             <button type="submit" class="btn{% if hasGaps %} craftsearch-btn--danger{% else %} submit{% endif %}" data-craftsearch-control="sync-site-btn">
                 {{ isMultiSite ? 'Sync this site' : 'Sync index' }}

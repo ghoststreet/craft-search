@@ -34,6 +34,6 @@
     flex-shrink: 0;
 }
 .onboarding-list__item--done .onboarding-list__icon {
-    background: var(--craft-search-success);
+    background: var(--smart-search-success);
     color: #fff;
 }

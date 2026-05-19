@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch\jobs;
+namespace ghoststreet\craftsmartsearch\jobs;
 
 use craft\base\Batchable;
 use craft\elements\Entry;

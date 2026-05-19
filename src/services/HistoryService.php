@@ -1,16 +1,16 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\db\Query;
 use craft\helpers\Db;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\helpers\PricingTable;
-use ghoststreet\craftaisearch\jobs\PruneHistoryJob;
-use ghoststreet\craftaisearch\records\SearchHistoryDetailsRecord;
-use ghoststreet\craftaisearch\records\SearchHistoryStatsRecord;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\PricingTable;
+use ghoststreet\craftsmartsearch\jobs\PruneHistoryJob;
+use ghoststreet\craftsmartsearch\records\SearchHistoryDetailsRecord;
+use ghoststreet\craftsmartsearch\records\SearchHistoryStatsRecord;
 use Throwable;
 use yii\base\Component;
 
@@ -87,7 +87,7 @@ class HistoryService extends Component
             return;
         }
 
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
         $this->maybeQueuePrune((int)$settings->historyRetentionDays);
     }
 

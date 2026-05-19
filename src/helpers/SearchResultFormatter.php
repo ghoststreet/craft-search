@@ -1,9 +1,9 @@
 <?php
 
-namespace ghoststreet\craftaisearch\helpers;
+namespace ghoststreet\craftsmartsearch\helpers;
 
 use craft\elements\Entry;
-use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
  * Helper for formatting search results consistently across different search types.
@@ -58,7 +58,7 @@ final class SearchResultFormatter
             return '';
         }
 
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
         $excerptLength = $settings->excerptLength;
 
         $content = strip_tags(trim($content));

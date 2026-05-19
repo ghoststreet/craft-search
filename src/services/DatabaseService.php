@@ -1,10 +1,10 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
+use ghoststreet\craftsmartsearch\helpers\Logger;
 use PDO;
 use PDOException;
 use yii\base\Component;
@@ -77,7 +77,7 @@ class DatabaseService extends Component
      */
     public function getQualifiedTable(): string
     {
-        return AiSearch::getInstance()->getSettings()->getQualifiedVectorsTable();
+        return SmartSearch::getInstance()->getSettings()->getQualifiedVectorsTable();
     }
 
     /**
@@ -109,7 +109,7 @@ class DatabaseService extends Component
      */
     private function resolveConnectionConfig(): array
     {
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
 
         $host = $settings->getPostgresqlHost();
         $port = $settings->getPostgresqlPort();
@@ -273,7 +273,7 @@ class DatabaseService extends Component
      */
     public function preflightSchema(): void
     {
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
         $schema = $settings->vectorsSchemaName;
         $table = $settings->vectorsTableName;
 

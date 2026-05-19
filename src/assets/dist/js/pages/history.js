@@ -1,7 +1,7 @@
 (function () {
     'use strict';
-    window.CraftSearch.pages.history = {
+    window.SmartSearch.pages.history = {
         init: function () {}
     };
-    window.CraftSearch.core.DOM.ready(window.CraftSearch.pages.history.init);
+    window.SmartSearch.core.DOM.ready(window.SmartSearch.pages.history.init);
 })();

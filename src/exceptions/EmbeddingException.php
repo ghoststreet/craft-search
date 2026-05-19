@@ -1,10 +1,10 @@
 <?php
 
-namespace ghoststreet\craftaisearch\exceptions;
+namespace ghoststreet\craftsmartsearch\exceptions;
 
 use Throwable;
 
-class EmbeddingException extends AiSearchException
+class EmbeddingException extends SmartSearchException
 {
     public static function emptyText(): self
     {

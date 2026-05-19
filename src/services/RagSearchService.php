@@ -1,16 +1,16 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\AiSearchException;
-use ghoststreet\craftaisearch\exceptions\SearchException;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\helpers\TextValidator;
-use ghoststreet\craftaisearch\helpers\TimingProfiler;
-use ghoststreet\craftaisearch\helpers\UsageTracker;
-use ghoststreet\craftaisearch\models\Settings;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
+use ghoststreet\craftsmartsearch\exceptions\SearchException;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\TextValidator;
+use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
+use ghoststreet\craftsmartsearch\helpers\UsageTracker;
+use ghoststreet\craftsmartsearch\models\Settings;
 use RuntimeException;
 use yii\base\Component;
 
@@ -55,11 +55,11 @@ class RagSearchService extends Component
     {
         return TimingProfiler::profile('TOTAL RAG search', function() use ($query, $limit, $siteId) {
             try {
-                $settings = AiSearch::getInstance()->getSettings();
+                $settings = SmartSearch::getInstance()->getSettings();
 
                 $searchResults = TimingProfiler::profile(
                     'Hybrid search',
-                    fn() => AiSearch::getInstance()->hybridSearchService->search(
+                    fn() => SmartSearch::getInstance()->hybridSearchService->search(
                         $query,
                         $limit,
                         $siteId
@@ -88,7 +88,7 @@ class RagSearchService extends Component
                 );
 
                 return $this->parseResponse($llmResponse, $searchResults, $limit);
-            } catch (AiSearchException $e) {
+            } catch (SmartSearchException $e) {
                 Logger::exception($e, 'ragSearch', ['query' => substr($query, 0, 50)]);
                 throw $e;
             } catch (\Throwable $e) {
@@ -137,7 +137,7 @@ class RagSearchService extends Component
      */
     private function generateSummary(string $query, string $context, Settings $settings): string
     {
-        $client = AiSearch::getInstance()->openAIClientFactory->getClient();
+        $client = SmartSearch::getInstance()->openAIClientFactory->getClient();
 
         $today = (new \DateTimeImmutable('now', new \DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
         $systemPrompt = $this->buildSystemPrompt($settings, $today);
@@ -178,9 +178,9 @@ class RagSearchService extends Component
     public function searchStream(string $query, int $limit = 5, ?int $siteId = null): \Generator
     {
         try {
-            $settings = AiSearch::getInstance()->getSettings();
+            $settings = SmartSearch::getInstance()->getSettings();
 
-            $searchResults = AiSearch::getInstance()->hybridSearchService->search(
+            $searchResults = SmartSearch::getInstance()->hybridSearchService->search(
                 $query,
                 $limit,
                 $siteId
@@ -200,7 +200,7 @@ class RagSearchService extends Component
             yield from $this->streamSummary($query, $context, $settings);
 
             yield ['type' => 'done'];
-        } catch (AiSearchException $e) {
+        } catch (SmartSearchException $e) {
             Logger::exception($e, 'ragSearchStream', ['query' => substr($query, 0, 50)]);
             throw $e;
         } catch (\Throwable $e) {
@@ -214,7 +214,7 @@ class RagSearchService extends Component
      */
     private function streamSummary(string $query, string $context, Settings $settings): \Generator
     {
-        $client = AiSearch::getInstance()->openAIClientFactory->getClient();
+        $client = SmartSearch::getInstance()->openAIClientFactory->getClient();
 
         $today = (new \DateTimeImmutable('now', new \DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
         $systemPrompt = $this->buildSystemPrompt($settings, $today, true);

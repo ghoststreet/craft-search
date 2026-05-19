@@ -1,20 +1,20 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\elements\Entry;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\ErrorCode;
-use ghoststreet\craftaisearch\exceptions\RateLimitException;
-use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
-use ghoststreet\craftaisearch\helpers\ErrorMapper;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\helpers\PricingTable;
-use ghoststreet\craftaisearch\helpers\RequestParameterExtractor;
-use ghoststreet\craftaisearch\helpers\SearchResultFormatter;
-use ghoststreet\craftaisearch\helpers\UsageTracker;
-use ghoststreet\craftaisearch\services\RateLimitService;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
+use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
+use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
+use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\PricingTable;
+use ghoststreet\craftsmartsearch\helpers\RequestParameterExtractor;
+use ghoststreet\craftsmartsearch\helpers\SearchResultFormatter;
+use ghoststreet\craftsmartsearch\helpers\UsageTracker;
+use ghoststreet\craftsmartsearch\services\RateLimitService;
 use Throwable;
 use yii\web\BadRequestHttpException;
 use yii\web\ForbiddenHttpException;
@@ -76,7 +76,7 @@ class SearchController extends BaseApiController
         $ip = (string)($request->getUserIP() ?? '0.0.0.0');
 
         try {
-            $this->rateLimitToken = AiSearch::getInstance()->rateLimitService->acquire($kind, $ip);
+            $this->rateLimitToken = SmartSearch::getInstance()->rateLimitService->acquire($kind, $ip);
         } catch (RateLimitException $e) {
             $this->emitRateLimitResponse($e);
             return false;
@@ -101,7 +101,7 @@ class SearchController extends BaseApiController
             return;
         }
 
-        $rl = AiSearch::getInstance()->rateLimitService;
+        $rl = SmartSearch::getInstance()->rateLimitService;
         $rl->release($this->rateLimitToken);
 
         $usage = UsageTracker::snapshot();
@@ -153,7 +153,7 @@ class SearchController extends BaseApiController
         $referer = (string)$request->getHeaders()->get('Referer');
 
         if ($origin === '' && $referer === '') {
-            $settings = AiSearch::getInstance()->getSettings();
+            $settings = SmartSearch::getInstance()->getSettings();
 
             if (empty($settings->getAllowedOriginsList())) {
                 return;
@@ -185,7 +185,7 @@ class SearchController extends BaseApiController
             return;
         }
 
-        $allowed = AiSearch::getInstance()->getSettings()->getAllowedOriginsList();
+        $allowed = SmartSearch::getInstance()->getSettings()->getAllowedOriginsList();
 
         if (in_array($candidateHost, $allowed, true)) {
             return;
@@ -202,7 +202,7 @@ class SearchController extends BaseApiController
 
     private function enforceBearerTokenIfConfigured($request): void
     {
-        $token = AiSearch::getInstance()->getSettings()->getApiToken();
+        $token = SmartSearch::getInstance()->getSettings()->getApiToken();
 
         if (empty($token)) {
             return;
@@ -237,7 +237,7 @@ class SearchController extends BaseApiController
     /**
      * Craft default search API endpoint.
      */
-    public function actionCraftSearch(): Response
+    public function actionIndex(): Response
     {
         $this->requireAcceptsJson();
         $params = RequestParameterExtractor::extractSearchParams();
@@ -288,7 +288,7 @@ class SearchController extends BaseApiController
         $this->logRequest('semanticSearch', $params);
 
         try {
-            $results = AiSearch::getInstance()->searchService->search(
+            $results = SmartSearch::getInstance()->searchService->search(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -338,7 +338,7 @@ class SearchController extends BaseApiController
         $this->logRequest('ragSearch', $params);
 
         try {
-            $response = AiSearch::getInstance()->ragSearchService->search(
+            $response = SmartSearch::getInstance()->ragSearchService->search(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -428,7 +428,7 @@ class SearchController extends BaseApiController
         $errorMessage = null;
 
         try {
-            $generator = AiSearch::getInstance()->ragSearchService->searchStream(
+            $generator = SmartSearch::getInstance()->ragSearchService->searchStream(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -494,7 +494,7 @@ class SearchController extends BaseApiController
         $this->logRequest('ragSearchFallback', $params);
 
         try {
-            $results = AiSearch::getInstance()->searchService->search(
+            $results = SmartSearch::getInstance()->searchService->search(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -539,7 +539,7 @@ class SearchController extends BaseApiController
         $errorMessage = null;
 
         try {
-            $results = AiSearch::getInstance()->searchService->search(
+            $results = SmartSearch::getInstance()->searchService->search(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -662,7 +662,7 @@ class SearchController extends BaseApiController
             $usage = UsageTracker::snapshot();
             $user = Craft::$app->getUser()->getIdentity();
 
-            AiSearch::getInstance()->historyService->record(array_merge([
+            SmartSearch::getInstance()->historyService->record(array_merge([
                 'requestId' => $this->requestId,
                 'type' => $type,
                 'query' => $params['query'] ?? '',

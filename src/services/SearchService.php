@@ -1,13 +1,13 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use craft\elements\Entry;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\SearchException;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\helpers\SearchResultDeduplicator;
-use ghoststreet\craftaisearch\helpers\TimingProfiler;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\SearchException;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\SearchResultDeduplicator;
+use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
 use PDO;
 use Pgvector\Vector;
 use PDOException;
@@ -31,7 +31,7 @@ class SearchService extends Component
      */
     public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null): array
     {
-        return AiSearch::getInstance()->hybridSearchService->search($query, $limit, $siteId, $embeddingModel);
+        return SmartSearch::getInstance()->hybridSearchService->search($query, $limit, $siteId, $embeddingModel);
     }
 
     /**
@@ -62,23 +62,23 @@ class SearchService extends Component
      */
     public function semanticSearchRaw(string $query, int $limit = 10, ?int $siteId = null, bool $applyThreshold = true, ?string $embeddingModel = null, ?array $precomputedVector = null): array
     {
-        $db = AiSearch::getInstance()->databaseService->getConnection();
+        $db = SmartSearch::getInstance()->databaseService->getConnection();
 
         if ($precomputedVector !== null) {
             $queryVector = $precomputedVector;
         } else {
             $queryVector = TimingProfiler::profile(
                 'Query embedding generation',
-                fn() => AiSearch::getInstance()->embeddingService->generateEmbedding($query, true, $embeddingModel)
+                fn() => SmartSearch::getInstance()->embeddingService->generateEmbedding($query, true, $embeddingModel)
             );
         }
 
         $queryVectorString = (string) new Vector($queryVector);
 
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
         $similarityThreshold = $applyThreshold ? max(0.0, min(1.0, (float)$settings->minimumSimilarityThreshold)) : 0.0;
 
-        $table = AiSearch::getInstance()->databaseService->getQualifiedTable();
+        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
 
         try {
             $sql = "

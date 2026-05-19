@@ -1,11 +1,11 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use craft\elements\Entry;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\helpers\TimingProfiler;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
 use yii\base\Component;
 
 /**
@@ -22,26 +22,26 @@ class HybridSearchService extends Component
      * Perform hybrid search combining semantic similarity and BM25 keyword scoring
      * using Reciprocal Rank Fusion (RRF) to merge both signal types.
      *
-     * @throws \ghoststreet\craftaisearch\exceptions\EmbeddingException If embedding generation fails
-     * @throws \ghoststreet\craftaisearch\exceptions\SearchException If vector or BM25 query fails
+     * @throws \ghoststreet\craftsmartsearch\exceptions\EmbeddingException If embedding generation fails
+     * @throws \ghoststreet\craftsmartsearch\exceptions\SearchException If vector or BM25 query fails
      */
     public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null): array
     {
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
 
         $queryVector = TimingProfiler::profile(
             'Query embedding generation',
-            fn() => AiSearch::getInstance()->embeddingService->generateEmbedding($query, true, $embeddingModel)
+            fn() => SmartSearch::getInstance()->embeddingService->generateEmbedding($query, true, $embeddingModel)
         );
 
         $bm25Results = TimingProfiler::profile(
             'BM25 scoring',
-            fn() => AiSearch::getInstance()->bm25Service->calculateScores($query, $siteId)
+            fn() => SmartSearch::getInstance()->bm25Service->calculateScores($query, $siteId)
         );
 
         $semanticResults = TimingProfiler::profile(
             'Vector similarity query',
-            fn() => AiSearch::getInstance()->searchService->semanticSearchRaw($query, min($settings->maxSemanticResults, $limit * 10), $siteId, false, $embeddingModel, $queryVector)
+            fn() => SmartSearch::getInstance()->searchService->semanticSearchRaw($query, min($settings->maxSemanticResults, $limit * 10), $siteId, false, $embeddingModel, $queryVector)
         );
 
         $semanticLookup = $this->buildSemanticLookup($semanticResults);

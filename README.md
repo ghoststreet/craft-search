@@ -1,4 +1,4 @@
-# AI Search for Craft CMS
+# Smart Search for Craft CMS
 
 
 **AI-powered semantic, hybrid, and RAG search for Craft CMS.**
@@ -13,7 +13,7 @@
 
 ## Overview
 
-AI Search brings intelligent, AI-powered search capabilities to your Craft CMS site. Instead of relying solely on keyword matching, AI Search understands the *meaning* behind queries and content, delivering more relevant results.
+Smart Search brings intelligent, AI-powered search capabilities to your Craft CMS site. Instead of relying solely on keyword matching, Smart Search understands the *meaning* behind queries and content, delivering more relevant results.
 
 **Four search types included:**
 
@@ -118,7 +118,7 @@ GRANT SET ON PARAMETER app.site_id TO craft_aisearch;
 
 ### Plugin configuration
 
-In **AI Search → Settings → Database**:
+In **Smart Search → Settings → Database**:
 
 | Setting | Value |
 |---------|-------|
@@ -154,7 +154,7 @@ DROP ROLE  IF EXISTS craft_aisearch;
 ### Via Plugin Store (Recommended)
 
 1. Go to the Plugin Store in your project's Control Panel
-2. Search for "AI Search"
+2. Search for "Smart Search"
 3. Click "Install"
 
 ### Via Composer
@@ -164,16 +164,16 @@ DROP ROLE  IF EXISTS craft_aisearch;
 cd /path/to/my-project
 
 # Install the plugin
-composer require ghost-street/craft-ai-search
+composer require ghost-street/craft-smart-search
 
 # Install in Craft
-./craft plugin/install ai-search
+./craft plugin/install smart-search
 ```
 
 ### Getting Started
 
 1. Provision PostgreSQL and run the [Database Setup](#database-setup-required-admin-owned) SQL **before** enabling the plugin — the plugin will refuse to operate against a missing table.
-2. Navigate to **AI Search** in the Control Panel sidebar.
+2. Navigate to **Smart Search** in the Control Panel sidebar.
 3. In **Settings → Quick start**, set your OpenAI API key (as a `$ENV_VAR` reference — plain text is rejected) and the daily cost cap.
 4. In **Settings → Advanced → Database**, fill in the connection fields using the dedicated `craft_aisearch` role, and set the **Vectors Table Name** to whatever name you used in the schema SQL.
 5. Go to **Index → Overview & sync** and click **Sync entire index** to build your initial index.
@@ -181,7 +181,7 @@ composer require ghost-street/craft-ai-search
 
 ## Control Panel layout
 
-The plugin exposes four sections under **AI Search**:
+The plugin exposes four sections under **Smart Search**:
 
 - **Dashboard** — Health score, KPI cards (searches, cost, coverage, response time) with 30-day Chart.js sparklines, daily budget gauge, top queries / zero-result queries, recent errors, and proactive recommendations (budget warnings, stale-index advisories, cache-hit hints, error-rate spikes).
 - **Insights** — Tabs for *Top queries*, *Zero results*, *Trending* (7-day delta), and *History log* (paginated, filterable). Click any history row for token / cost / result breakdown.
@@ -259,9 +259,9 @@ All endpoints require a valid Craft CSRF token and accept the following common p
 | `limit` | integer | No | 10 (5 for RAG) | Maximum results to return |
 | `siteId` | integer | No | Current site | Filter results by site ID |
 
-`GET /api/hybrid-search`, `GET /api/craft-search`, and `GET /api/rag-search/stream` (SSE) handle browser flow; `POST /api/rag-search` is required for the non-streaming RAG endpoint.
+`GET /api/smart-search/hybrid`, `GET /api/smart-search`, and `GET /api/smart-search/rag/stream` (SSE) handle browser flow; `POST /api/smart-search/rag` is required for the non-streaming RAG endpoint.
 
-### GET /api/hybrid-search
+### GET /api/smart-search/hybrid
 
 Performs hybrid search combining semantic and BM25 signals.
 
@@ -285,7 +285,7 @@ Performs hybrid search combining semantic and BM25 signals.
 }
 ```
 
-### GET /api/craft-search
+### GET /api/smart-search
 
 Performs native Craft CMS search (keyword-based).
 
@@ -305,7 +305,7 @@ Performs native Craft CMS search (keyword-based).
 }
 ```
 
-### GET /api/rag-search
+### GET /api/smart-search/rag
 
 Performs AI-powered search with generated summary.
 
@@ -332,25 +332,25 @@ Performs AI-powered search with generated summary.
 ### Index All Entries
 
 ```bash
-./craft ai-search/index
+./craft smart-search/index
 ```
 
 ### Index Specific Section
 
 ```bash
-./craft ai-search/index --section=blog
+./craft smart-search/index --section=blog
 ```
 
 ### Index Specific Site
 
 ```bash
-./craft ai-search/index --siteId=1
+./craft smart-search/index --siteId=1
 ```
 
 ### Combined Options
 
 ```bash
-./craft ai-search/index --section=news --siteId=2
+./craft smart-search/index --section=news --siteId=2
 ```
 
 The index command will:
@@ -361,7 +361,7 @@ The index command will:
 
 ## Configuration
 
-All settings are configurable via the Control Panel under **AI Search**.
+All settings are configurable via the Control Panel under **Smart Search**.
 
 ### Database Settings
 
@@ -473,7 +473,7 @@ On managed providers, enable it through their dashboard.
 
 ### No results returned
 
-1. Check that entries have been indexed (**AI Search > Dashboard**)
+1. Check that entries have been indexed (**Smart Search > Dashboard**)
 2. Verify entries have URLs (entries without URLs are not indexed)
 3. Run a manual re-index via **Data Sync** or console command
 4. Lower the similarity threshold in Hybrid Search settings
@@ -499,7 +499,7 @@ For large sites (10,000+ entries):
 
 ## License
 
-This plugin is licensed under the [Craft License](https://craftcms.github.io/license/). A license is required for each Craft project running AI Search in production.
+This plugin is licensed under the [Craft License](https://craftcms.github.io/license/). A license is required for each Craft project running Smart Search in production.
 
 ---
 

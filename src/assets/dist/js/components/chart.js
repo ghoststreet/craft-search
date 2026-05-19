@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    var Theme = window.CraftSearch.core.ChartTheme;
+    var Theme = window.SmartSearch.core.ChartTheme;
 
     function sparklineConfig(series, color) {
         var p = Theme.palette();
@@ -106,13 +106,13 @@
         'stacked-bar': stackedBarConfig
     };
 
-    window.CraftSearch.components.Chart = {
+    window.SmartSearch.components.Chart = {
         build: function (canvas) {
             if (typeof Chart === 'undefined') return null;
             var kind = canvas.getAttribute('data-craftsearch-chart');
             var builder = BUILDERS[kind];
             if (!builder) return null;
-            var series = window.CraftSearch.core.Utils.parseJSON(
+            var series = window.SmartSearch.core.Utils.parseJSON(
                 canvas.getAttribute('data-craftsearch-series'),
                 null
             );

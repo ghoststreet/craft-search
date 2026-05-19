@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    var ns = window.CraftSearch;
+    var ns = window.SmartSearch;
     var root = document.querySelector('[data-craftsearch-config]');
     var parsed = {};
     if (root) {

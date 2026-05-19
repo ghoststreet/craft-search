@@ -28,7 +28,7 @@
         Chart.defaults.color = palette().muted;
     }
 
-    window.CraftSearch.core.ChartTheme = {
+    window.SmartSearch.core.ChartTheme = {
         cssVar: cssVar,
         palette: palette,
         applyChartDefaults: applyChartDefaults

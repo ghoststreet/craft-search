@@ -53,16 +53,16 @@
     color: var(--text-color, #3f4d5a);
 }
 .confidence-chip--green {
-    background: var(--craft-search-chip-success-bg);
-    color: var(--craft-search-chip-success-fg);
+    background: var(--smart-search-chip-success-bg);
+    color: var(--smart-search-chip-success-fg);
 }
 .confidence-chip--orange {
-    background: var(--craft-search-chip-warn-bg);
-    color: var(--craft-search-chip-warn-fg);
+    background: var(--smart-search-chip-warn-bg);
+    color: var(--smart-search-chip-warn-fg);
 }
 .confidence-chip--red {
-    background: var(--craft-search-chip-danger-bg);
-    color: var(--craft-search-chip-danger-fg);
+    background: var(--smart-search-chip-danger-bg);
+    color: var(--smart-search-chip-danger-fg);
 }
 
 .stat-strip {

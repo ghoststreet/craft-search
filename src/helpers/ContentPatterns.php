@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch\helpers;
+namespace ghoststreet\craftsmartsearch\helpers;
 
 /**
  * Helper for content pattern matching.

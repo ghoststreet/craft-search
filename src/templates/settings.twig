@@ -12,27 +12,27 @@
 } %}
 
 {% block content %}
-    {{ actionInput('ai-search/settings/save') }}
-    {{ redirectInput('ai-search/settings') }}
+    {{ actionInput('smart-search/settings/save') }}
+    {{ redirectInput('smart-search/settings') }}
 
     <div id="tab-connections">
-        {% include 'ai-search/_settings/_connections' %}
+        {% include 'smart-search/_settings/_connections' %}
     </div>
 
     <div id="tab-indexing" class="hidden">
-        {% include 'ai-search/_settings/_indexing' %}
+        {% include 'smart-search/_settings/_indexing' %}
     </div>
 
     <div id="tab-hybrid-search" class="hidden">
-        {% include 'ai-search/_settings/_hybrid_search' %}
+        {% include 'smart-search/_settings/_hybrid_search' %}
     </div>
 
     <div id="tab-ai-answers" class="hidden">
-        {% include 'ai-search/_settings/_ai_answers' %}
+        {% include 'smart-search/_settings/_ai_answers' %}
     </div>
 
     <div id="tab-advanced" class="hidden">
-        {% include 'ai-search/_settings/_advanced' %}
+        {% include 'smart-search/_settings/_advanced' %}
     </div>
 {% endblock %}
 

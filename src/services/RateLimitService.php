@@ -1,10 +1,10 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\RateLimitException;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use yii\base\Component;
 
 /**
@@ -53,7 +53,7 @@ class RateLimitService extends Component
      */
     public function acquire(string $kind, string $ip): string
     {
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
 
         if ($kind !== self::KIND_RAG) {
             $this->enforceWindow("rate:{$kind}:m:{$ip}", $settings->rateLimitSearchPerMinute, self::WINDOW_MINUTE);
@@ -146,7 +146,7 @@ class RateLimitService extends Component
      */
     public function getBudgetConsumption(?float $sevenDayBurn = null): array
     {
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
         $cap = (float)$settings->costBudgetDailyGlobal;
         $spent = (float)Craft::$app->getCache()->get($this->todayBudgetKey());
         if ($spent < 0) {
@@ -195,7 +195,7 @@ class RateLimitService extends Component
      */
     public function isGlobalBudgetExhausted(): bool
     {
-        $cap = (float)AiSearch::getInstance()->getSettings()->costBudgetDailyGlobal;
+        $cap = (float)SmartSearch::getInstance()->getSettings()->costBudgetDailyGlobal;
         if ($cap <= 0) {
             return false;
         }

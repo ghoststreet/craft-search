@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch\helpers;
+namespace ghoststreet\craftsmartsearch\helpers;
 
 /**
  * Per-request accumulator for OpenAI token usage.

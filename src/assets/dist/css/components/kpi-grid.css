@@ -51,7 +51,7 @@
     font-size: 11px;
 }
 .kpi-card__error {
-    color: var(--craft-search-danger);
+    color: var(--smart-search-danger);
 }
 .kpi-card__eta {
     font-size: 11px;
@@ -109,5 +109,5 @@
     min-width: 0;
 }
 .kpi-card--compact.kpi-card--error .kpi-card__icon {
-    color: var(--craft-search-danger, var(--error-color, #cf1124));
+    color: var(--smart-search-danger, var(--error-color, #cf1124));
 }

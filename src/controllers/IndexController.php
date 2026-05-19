@@ -1,15 +1,15 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\elements\Entry;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\helpers\ErrorMapper;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\jobs\IndexEntryJob;
-use ghoststreet\craftaisearch\jobs\SyncSearchIndexJob;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
+use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
+use ghoststreet\craftsmartsearch\jobs\SyncSearchIndexJob;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
@@ -25,13 +25,13 @@ class IndexController extends BaseApiController
     {
         $this->requireAdmin();
 
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
         $settings = $plugin->getSettings();
 
         if (empty($settings->getOpenaiApiKey())
             || empty($settings->getPostgresqlHost())
             || empty($settings->getPostgresqlDatabase())) {
-            return $this->redirect('ai-search');
+            return $this->redirect('smart-search');
         }
 
         $request = Craft::$app->getRequest();
@@ -58,7 +58,7 @@ class IndexController extends BaseApiController
             'settings' => $settings,
             'stats' => $stats,
             'setup' => $setup,
-            'syncStarted' => Craft::$app->getSession()->getFlash('ai-search-sync-started', false),
+            'syncStarted' => Craft::$app->getSession()->getFlash('smart-search-sync-started', false),
             'selectedSubnavItem' => 'index',
         ];
 
@@ -91,7 +91,7 @@ class IndexController extends BaseApiController
             $data['coverage'] = $plugin->indexingDebugService->getCoverageBySite();
         }
 
-        return $this->renderTemplate('ai-search/index-mgmt/index', $data);
+        return $this->renderTemplate('smart-search/index-mgmt/index', $data);
     }
 
     public function actionEntry(): Response
@@ -102,7 +102,7 @@ class IndexController extends BaseApiController
         $elementId = (int)$request->getRequiredQueryParam('elementId');
         $siteId = (int)$request->getRequiredQueryParam('siteId');
 
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
 
         try {
             $inspection = $plugin->indexingDebugService->inspectElement($elementId, $siteId);
@@ -116,7 +116,7 @@ class IndexController extends BaseApiController
             throw new NotFoundHttpException('Entry not found');
         }
 
-        return $this->renderTemplate('ai-search/index-mgmt/entry', [
+        return $this->renderTemplate('smart-search/index-mgmt/entry', [
             'plugin' => $plugin,
             'inspection' => $inspection,
             'error' => $error,
@@ -154,7 +154,7 @@ class IndexController extends BaseApiController
                 ];
             }
 
-            $orphans = AiSearch::getInstance()->databaseService->deleteOrphanedVectors($activeKeys, $siteId);
+            $orphans = SmartSearch::getInstance()->databaseService->deleteOrphanedVectors($activeKeys, $siteId);
 
             if ($siteId !== null) {
                 Craft::$app->getQueue()->push(new SyncSearchIndexJob(['siteId' => $siteId]));
@@ -167,20 +167,20 @@ class IndexController extends BaseApiController
             $count = count($activeKeys);
             Logger::info('Queued sync job', ['entries' => $count, 'orphansRemoved' => $orphans, 'siteId' => $siteId]);
 
-            Craft::$app->getSession()->setFlash('ai-search-sync-started', true);
+            Craft::$app->getSession()->setFlash('smart-search-sync-started', true);
             Craft::$app->getSession()->setNotice(
-                Craft::t('ai-search', 'Sync queued for {count} entries. {orphans} orphaned vectors removed.', [
+                Craft::t('smart-search', 'Sync queued for {count} entries. {orphans} orphaned vectors removed.', [
                     'count' => $count,
                     'orphans' => $orphans,
                 ])
             );
         } catch (DatabaseException $e) {
             Craft::$app->getSession()->setError(
-                Craft::t('ai-search', 'Failed to start sync: {error}', ['error' => ErrorMapper::present($e, 'sync')])
+                Craft::t('smart-search', 'Failed to start sync: {error}', ['error' => ErrorMapper::present($e, 'sync')])
             );
         }
 
-        return $this->redirect('ai-search/index');
+        return $this->redirect('smart-search/index');
     }
 
     public function actionGetStats(): Response
@@ -189,7 +189,7 @@ class IndexController extends BaseApiController
         $this->requireAcceptsJson();
 
         try {
-            $plugin = AiSearch::getInstance();
+            $plugin = SmartSearch::getInstance();
             $stats = $plugin->databaseService->getStats(false);
             $perSite = $plugin->databaseService->getStatsPerSite();
             $queue = Craft::$app->getQueue();
@@ -243,7 +243,7 @@ class IndexController extends BaseApiController
      */
     private function buildOverviewData(array $setup, array $stats): array
     {
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
         $sites = Craft::$app->getSites()->getAllSites();
         $isMultiSite = count($sites) > 1;
 
@@ -335,7 +335,7 @@ class IndexController extends BaseApiController
 
     public function actionLegacyRedirect(): Response
     {
-        return $this->redirect('ai-search/index');
+        return $this->redirect('smart-search/index');
     }
 
     public function actionReindexEntry(): Response
@@ -359,7 +359,7 @@ class IndexController extends BaseApiController
             ]);
         }
 
-        Craft::$app->getSession()->setNotice(Craft::t('ai-search', 'Re-index queued for entry #{id}.', ['id' => $elementId]));
+        Craft::$app->getSession()->setNotice(Craft::t('smart-search', 'Re-index queued for entry #{id}.', ['id' => $elementId]));
 
         return $this->redirectToPostedUrl();
     }

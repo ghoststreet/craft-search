@@ -4,26 +4,26 @@
 {% set selectedSubnavItem = 'index' %}
 
 {% set tabs = {
-    overview: { label: 'Overview & sync',   url: cpUrl('ai-search/index', { tab: 'overview' }) },
-    entries:  { label: 'Entries',           url: cpUrl('ai-search/index', { tab: 'entries' }) },
-    coverage: { label: 'Per-site coverage', url: cpUrl('ai-search/index', { tab: 'coverage' }) },
+    overview: { label: 'Overview & sync',   url: cpUrl('smart-search/index', { tab: 'overview' }) },
+    entries:  { label: 'Entries',           url: cpUrl('smart-search/index', { tab: 'entries' }) },
+    coverage: { label: 'Per-site coverage', url: cpUrl('smart-search/index', { tab: 'coverage' }) },
 } %}
 {% set selectedTab = tab %}
 
 {% block content %}
     {% if tab == 'overview' %}
         {% if overview.state == 'onboarding' %}
-            {% include 'ai-search/_partials/overview-onboarding' with { setup: setup } only %}
+            {% include 'smart-search/_partials/overview-onboarding' with { setup: setup } only %}
 
         {% elseif overview.state == 'disconnected' %}
-            {% include 'ai-search/_partials/overview-disconnected' with { error: overview.error } only %}
+            {% include 'smart-search/_partials/overview-disconnected' with { error: overview.error } only %}
 
         {% else %}
             {% if overview.isMultiSite %}
                 <div class="craftsearch-overview-actions">
                     <form method="post">
                         {{ csrfInput() }}
-                        {{ actionInput('ai-search/index/sync') }}
+                        {{ actionInput('smart-search/index/sync') }}
                         <button type="submit" class="btn submit" data-craftsearch-control="sync-all-btn">Sync all sites</button>
                     </form>
                     <p class="light smalltext">Only changed entries are re-embedded — unchanged ones are skipped.</p>
@@ -34,7 +34,7 @@
                  data-craftsearch-target="overview-grid"
                  {% if syncStarted ?? false %}data-craftsearch-sync-started="1"{% endif %}>
                 {% for site in overview.sites %}
-                    {% include 'ai-search/_partials/overview-site-card' with { site: site, isMultiSite: overview.isMultiSite } only %}
+                    {% include 'smart-search/_partials/overview-site-card' with { site: site, isMultiSite: overview.isMultiSite } only %}
                 {% endfor %}
             </div>
         {% endif %}
@@ -47,21 +47,21 @@
         {% set counts = result.counts ?? { indexed: 0, stale: 0, 'not-indexed': 0, total: result.total } %}
         {% set totalPages = (result.total / result.pageSize)|round(0, 'ceil') %}
 
-        {% include 'ai-search/_partials/entries-toolbar' with {
+        {% include 'smart-search/_partials/entries-toolbar' with {
             filters: filters,
             sites: sites,
             sections: sections,
             hiddenFields: { tab: 'entries' },
         } only %}
 
-        {% include 'ai-search/_partials/entries-stats' with { counts: counts } only %}
+        {% include 'smart-search/_partials/entries-stats' with { counts: counts } only %}
 
-        {% include 'ai-search/_partials/entries-table' with {
+        {% include 'smart-search/_partials/entries-table' with {
             rows: result.rows,
-            entryUrlPath: 'ai-search/index/entry',
+            entryUrlPath: 'smart-search/index/entry',
         } only %}
 
-        {% include 'ai-search/_components/pagination-path' with {
+        {% include 'smart-search/_components/pagination-path' with {
             currentPage: result.page,
             totalPages: totalPages,
             params: filters|merge({ tab: 'entries' }),

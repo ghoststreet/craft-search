@@ -1,7 +1,7 @@
 {#
     Advanced tab body — admin/ops focused.
 #}
-{% include 'ai-search/_dashboard/_kpi-ops' with {
+{% include 'smart-search/_dashboard/_kpi-ops' with {
     aggregates: aggregates,
     seriesCost: seriesCost,
     seriesDuration: seriesDuration,
@@ -24,7 +24,7 @@
                 <canvas data-craftsearch-chart="stacked-bar" data-craftsearch-series="{{ coverage|json_encode|e('html_attr') }}"></canvas>
             </div>
         {% else %}
-            <p class="dash-empty">No entries indexed yet — <a href="{{ cpUrl('ai-search/index') }}">run your first sync</a>.</p>
+            <p class="dash-empty">No entries indexed yet — <a href="{{ cpUrl('smart-search/index') }}">run your first sync</a>.</p>
         {% endif %}
     </div>
 
@@ -40,7 +40,7 @@
             <tbody>
                 {% for e in recentErrors %}
                     <tr>
-                        <td><a href="{{ cpUrl('ai-search/insights/' ~ e.id) }}">{{ (e.query ?: e.errorMessage ?: 'error')|slice(0, 60) }}{% if (e.query ?: e.errorMessage ?: '')|length > 60 %}…{% endif %}</a></td>
+                        <td><a href="{{ cpUrl('smart-search/insights/' ~ e.id) }}">{{ (e.query ?: e.errorMessage ?: 'error')|slice(0, 60) }}{% if (e.query ?: e.errorMessage ?: '')|length > 60 %}…{% endif %}</a></td>
                         <td class="rightalign"><span class="light">{{ e.dateCreated|date('M j, g:ia') }}</span></td>
                     </tr>
                 {% else %}
@@ -49,11 +49,11 @@
             </tbody>
         </table>
         {% if recentErrors|length %}
-            <p class="dash-cta"><a class="go" href="{{ cpUrl('ai-search/insights?tab=history&errorsOnly=1') }}">View all errors</a></p>
+            <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights?tab=history&errorsOnly=1') }}">View all errors</a></p>
         {% endif %}
     </div>
 </div>
 
-{% include 'ai-search/_dashboard/_slow-queries' with { slowQueries: slowQueries } only %}
+{% include 'smart-search/_dashboard/_slow-queries' with { slowQueries: slowQueries } only %}
 
-{% include 'ai-search/_dashboard/_recommendations' with { recommendations: recommendations, scope: 'advanced' } only %}
+{% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, scope: 'advanced' } only %}

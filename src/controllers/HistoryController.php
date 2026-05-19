@@ -1,11 +1,11 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\web\Controller;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\helpers\PricingTable;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\helpers\PricingTable;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
@@ -27,7 +27,7 @@ class HistoryController extends Controller
         $siteIdParam = $request->getParam('siteId');
         $siteId = is_numeric($siteIdParam) && (int)$siteIdParam > 0 ? (int)$siteIdParam : null;
 
-        $history = AiSearch::getInstance()->historyService;
+        $history = SmartSearch::getInstance()->historyService;
 
         $page = $history->paginate($page, 25, [
             'type' => $type,
@@ -41,7 +41,7 @@ class HistoryController extends Controller
 
         $sites = $history->getAvailableSites();
 
-        return $this->renderTemplate('ai-search/history/index', [
+        return $this->renderTemplate('smart-search/history/index', [
             'selectedSubnavItem' => 'history',
             'page' => $page,
             'stats' => $stats,
@@ -67,9 +67,9 @@ class HistoryController extends Controller
         $siteId = is_numeric($siteIdParam) && (int)$siteIdParam > 0 ? (int)$siteIdParam : null;
         $limit = 25;
 
-        $history = AiSearch::getInstance()->historyService;
+        $history = SmartSearch::getInstance()->historyService;
 
-        return $this->renderTemplate('ai-search/history/keywords', [
+        return $this->renderTemplate('smart-search/history/keywords', [
             'selectedSubnavItem' => 'keywords',
             'keywords' => [
                 'top' => $history->getTopKeywords($days, $siteId, $limit),
@@ -88,12 +88,12 @@ class HistoryController extends Controller
     {
         $this->requireAdmin();
 
-        $row = AiSearch::getInstance()->historyService->findOne($id);
+        $row = SmartSearch::getInstance()->historyService->findOne($id);
         if ($row === null) {
             throw new NotFoundHttpException('Search history entry not found.');
         }
 
-        return $this->renderTemplate('ai-search/history/detail', [
+        return $this->renderTemplate('smart-search/history/detail', [
             'selectedSubnavItem' => 'history',
             'row' => $row,
             'embeddingRates' => PricingTable::getRates($row['embeddingModel'] ?? null),
@@ -106,8 +106,8 @@ class HistoryController extends Controller
         $this->requirePostRequest();
         $this->requireAdmin();
 
-        $settings = AiSearch::getInstance()->getSettings();
-        $deleted = AiSearch::getInstance()->historyService->pruneOlderThan($settings->historyRetentionDays);
+        $settings = SmartSearch::getInstance()->getSettings();
+        $deleted = SmartSearch::getInstance()->historyService->pruneOlderThan($settings->historyRetentionDays);
 
         Craft::$app->getSession()->setNotice("Pruned {$deleted} history rows older than {$settings->historyRetentionDays} days.");
 
@@ -119,7 +119,7 @@ class HistoryController extends Controller
         $this->requirePostRequest();
         $this->requireAdmin();
 
-        $deleted = AiSearch::getInstance()->historyService->clearAllDetails();
+        $deleted = SmartSearch::getInstance()->historyService->clearAllDetails();
 
         Craft::$app->getSession()->setNotice("Cleared {$deleted} history rows. Token and cost stats are preserved.");
 

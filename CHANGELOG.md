@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Five-tab settings interface for API, database, hybrid search, RAG, and advanced configuration
 - Support for environment variables in all sensitive settings
-- Custom log target (`ai-search.log`) for isolated debugging
+- Custom log target (`smart-search.log`) for isolated debugging
 
 ### Changed
 - Improved settings organization and help text
@@ -34,20 +34,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - RAG (Retrieval-Augmented Generation) search with AI-generated summaries and source attribution
-- RAG API endpoint (`/api/rag-search`)
+- RAG API endpoint (`/api/smart-search/rag`)
 
 ## 0.4.0 - 2025-01-26
 
 ### Added
 - Hybrid search combining BM25 keyword scoring with semantic similarity via Reciprocal Rank Fusion
-- Hybrid search API endpoint (`/api/hybrid-search`)
+- Hybrid search API endpoint (`/api/smart-search/hybrid`)
 - Request-level and persistent embedding cache to minimize API costs
 
 ## 0.3.0 - 2025-01-24
 
 ### Added
 - Data Sync page with wipe-and-reindex functionality
-- CLI bulk indexing command (`php craft ai-search/index`) with site and section filters
+- CLI bulk indexing command (`php craft smart-search/index`) with site and section filters
 - Control panel dashboard with index statistics and connection status
 
 ## 0.2.0 - 2025-01-22
@@ -61,4 +61,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Initial plugin scaffold
 - Semantic vector search using OpenAI embeddings and PostgreSQL pgvector
-- Craft search API endpoint (`/api/craft-search`)
+- Craft search API endpoint (`/api/smart-search`)

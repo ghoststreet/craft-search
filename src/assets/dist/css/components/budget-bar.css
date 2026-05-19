@@ -8,8 +8,8 @@
 .budget-bar__fill {
     display: block;
     height: 100%;
-    background: var(--craft-search-success);
+    background: var(--smart-search-success);
     transition: width .3s;
 }
-.budget-bar--warn .budget-bar__fill { background: var(--craft-search-warning); }
-.budget-bar--crit .budget-bar__fill { background: var(--craft-search-danger); }
+.budget-bar--warn .budget-bar__fill { background: var(--smart-search-warning); }
+.budget-bar--crit .budget-bar__fill { background: var(--smart-search-danger); }

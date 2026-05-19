@@ -1,19 +1,19 @@
 <?php
 
-namespace ghoststreet\craftaisearch\helpers;
+namespace ghoststreet\craftsmartsearch\helpers;
 
 use Craft;
 use Throwable;
 
 /**
- * Centralized logging helper for the AI Search plugin.
+ * Centralized logging helper for the Smart Search plugin.
  *
- * All logs use the 'ai-search' category to ensure they go to
- * storage/logs/ai-search.log instead of being split across multiple log files.
+ * All logs use the 'smart-search' category to ensure they go to
+ * storage/logs/smart-search.log instead of being split across multiple log files.
  */
 final class Logger
 {
-    private const CATEGORY = 'ai-search';
+    private const CATEGORY = 'smart-search';
 
     /**
      * Log an informational message.

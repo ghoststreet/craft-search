@@ -1,24 +1,24 @@
 <?php
 
-namespace ghoststreet\craftaisearch\assets;
+namespace ghoststreet\craftsmartsearch\assets;
 
 use craft\web\AssetBundle;
 use craft\web\assets\cp\CpAsset;
 
 /**
  * Base CP asset bundle for the Craft Search plugin.
- * Bootstraps the window.CraftSearch namespace and shared core modules.
+ * Bootstraps the window.SmartSearch namespace and shared core modules.
  * Page-specific bundles depend on this and add their own components/pages.
  */
-class CraftSearchAsset extends AssetBundle
+class SmartSearchAsset extends AssetBundle
 {
     public function init(): void
     {
         $this->sourcePath = __DIR__ . '/dist';
         $this->depends = [CpAsset::class];
         $this->js = [
-            'js/craft-search-base.js',
-            'js/craft-search-config.js',
+            'js/smart-search-base.js',
+            'js/smart-search-config.js',
             'js/core/dom.js',
             'js/core/errors.js',
             'js/core/api.js',
@@ -26,7 +26,7 @@ class CraftSearchAsset extends AssetBundle
         ];
         $this->css = [
             // Base (must load first)
-            'css/base/craft-search.css',
+            'css/base/smart-search.css',
 
             // Components (alphabetical)
             'css/components/alert.css',

@@ -1,8 +1,8 @@
 <?php
 
-namespace ghoststreet\craftaisearch\exceptions;
+namespace ghoststreet\craftsmartsearch\exceptions;
 
-class ConfigurationException extends AiSearchException
+class ConfigurationException extends SmartSearchException
 {
     public static function missingApiKey(string $service): self
     {

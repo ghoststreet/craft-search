@@ -1,10 +1,10 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\web\Controller;
-use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\web\Response;
 
 class PreviewController extends Controller
@@ -13,10 +13,10 @@ class PreviewController extends Controller
     {
         $this->requireAdmin();
 
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
         $sites = Craft::$app->getSites()->getAllSites();
 
-        return $this->renderTemplate('ai-search/preview/index', [
+        return $this->renderTemplate('smart-search/preview/index', [
             'plugin' => $plugin,
             'sites' => $sites,
             'selectedSubnavItem' => 'preview',

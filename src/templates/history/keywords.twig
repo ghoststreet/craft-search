@@ -1,5 +1,5 @@
 {% extends "_layouts/cp" %}
-{% import 'ai-search/_components/filter-fields' as f %}
+{% import 'smart-search/_components/filter-fields' as f %}
 
 {% set title = 'Search Keywords' %}
 {% set selectedSubnavItem = 'keywords' %}
@@ -8,7 +8,7 @@
 {% set siteFilter = filters.siteId %}
 
 {% block content %}
-    <form method="get" action="{{ cpUrl('ai-search/history/keywords') }}">
+    <form method="get" action="{{ cpUrl('smart-search/history/keywords') }}">
         <div class="filter-bar">
             {{ f.daysSelect(daysFilter) }}
             {{ f.sitesSelect(keywords.sites, siteFilter) }}

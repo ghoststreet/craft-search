@@ -1,15 +1,15 @@
 <?php
 
-namespace ghoststreet\craftaisearch\variables;
+namespace ghoststreet\craftsmartsearch\variables;
 
-use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
- * Twig variable class for AI Search.
+ * Twig variable class for Smart Search.
  *
- * Provides `craft.aiSearch.search()` and `craft.aiSearch.rag()` for frontend templates.
+ * Provides `craft.smartSearch.search()` and `craft.smartSearch.rag()` for frontend templates.
  */
-class AiSearchVariable
+class SmartSearchVariable
 {
     /**
      * Perform a hybrid (vector + BM25) search from Twig templates.
@@ -21,7 +21,7 @@ class AiSearchVariable
      */
     public function search(string $query, int $limit = 10, ?int $siteId = null): array
     {
-        return AiSearch::getInstance()->searchService->search($query, $limit, $siteId);
+        return SmartSearch::getInstance()->searchService->search($query, $limit, $siteId);
     }
 
     /**
@@ -34,6 +34,6 @@ class AiSearchVariable
      */
     public function rag(string $query, int $limit = 5, ?int $siteId = null): array
     {
-        return AiSearch::getInstance()->ragSearchService->search($query, $limit, $siteId);
+        return SmartSearch::getInstance()->ragSearchService->search($query, $limit, $siteId);
     }
 }

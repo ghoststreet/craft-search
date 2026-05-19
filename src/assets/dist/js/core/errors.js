@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    var ns = window.CraftSearch = window.CraftSearch || {};
+    var ns = window.SmartSearch = window.SmartSearch || {};
     ns.core = ns.core || {};
 
     var MESSAGES = {
@@ -23,7 +23,7 @@
         RATE_LIMIT_CONCURRENCY:      'Too many concurrent requests. Try again in a moment.',
         RATE_LIMIT_BUDGET:           'Daily AI cost budget exhausted. Try again later.',
         CONFIG_MISSING_API_KEY:      'An API key is not configured. Please set it in plugin settings.',
-        UNKNOWN:                     'Something went wrong. The administrator can find details in the AI Search log.'
+        UNKNOWN:                     'Something went wrong. The administrator can find details in the Smart Search log.'
     };
 
     ns.core.errors = {

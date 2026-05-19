@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var ns = window.CraftSearch;
+    var ns = window.SmartSearch;
     var DOM = ns.core.DOM;
 
     function startPolling() {
@@ -14,7 +14,7 @@
         var peakChunks = 0;
 
         var interval = setInterval(function () {
-            Craft.sendActionRequest('POST', 'ai-search/data-sync/get-stats')
+            Craft.sendActionRequest('POST', 'smart-search/data-sync/get-stats')
                 .then(function (response) {
                     var data = response.data;
                     if (!data || !data.success) return;
@@ -61,7 +61,7 @@
                 return;
             }
 
-            Craft.sendActionRequest('POST', 'ai-search/data-sync/get-stats')
+            Craft.sendActionRequest('POST', 'smart-search/data-sync/get-stats')
                 .then(function (response) {
                     if (response.data && response.data.success && response.data.queueRemaining > 0) {
                         startPolling();

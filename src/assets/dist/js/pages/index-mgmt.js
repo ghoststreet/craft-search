@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var ns = window.CraftSearch;
+    var ns = window.SmartSearch;
     var DOM = ns.core.DOM;
 
     var STATUS_RESERVED = 2;
@@ -139,7 +139,7 @@
     }
 
     function poll() {
-        return Craft.sendActionRequest('POST', 'ai-search/index/get-stats').then(function (r) {
+        return Craft.sendActionRequest('POST', 'smart-search/index/get-stats').then(function (r) {
             if (!r.data || !r.data.success) return true;
             return render(r.data);
         }).catch(function () { return true; });
@@ -158,13 +158,13 @@
 
     function pollReindexJob(jobId, button) {
         function tick() {
-            Craft.sendActionRequest('GET', 'ai-search/index/job-status', { params: { id: jobId } })
+            Craft.sendActionRequest('GET', 'smart-search/index/job-status', { params: { id: jobId } })
                 .then(function (r) {
                     var data = (r && r.data) || {};
                     if (data.done) {
                         enableReindexButton(button);
                         if (Craft.cp && Craft.cp.displayNotice) {
-                            Craft.cp.displayNotice(Craft.t('ai-search', 'Re-index finished.'));
+                            Craft.cp.displayNotice(Craft.t('smart-search', 'Re-index finished.'));
                         }
                         return;
                     }
@@ -210,7 +210,7 @@
                     siteId: parseInt(form.getAttribute('data-site-id'), 10),
                 };
 
-                Craft.sendActionRequest('POST', 'ai-search/index/reindex-entry', { data: payload })
+                Craft.sendActionRequest('POST', 'smart-search/index/reindex-entry', { data: payload })
                     .then(function (r) {
                         var data = (r && r.data) || {};
                         if (!data.success || !data.jobId) {

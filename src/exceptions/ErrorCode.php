@@ -1,6 +1,6 @@
 <?php
 
-namespace ghoststreet\craftaisearch\exceptions;
+namespace ghoststreet\craftsmartsearch\exceptions;
 
 enum ErrorCode: string
 {
@@ -57,7 +57,7 @@ enum ErrorCode: string
         return match ($this) {
             self::SEARCH_SEMANTIC_FAILED      => 'Semantic search failed. Please try again.',
             self::SEARCH_RAG_FAILED           => 'AI summary failed. Please try again.',
-            self::SEARCH_RAG_LLM_ERROR        => 'The AI provider rejected the summary request. An administrator can find details in the AI Search log.',
+            self::SEARCH_RAG_LLM_ERROR        => 'The AI provider rejected the summary request. An administrator can find details in the Smart Search log.',
             self::SEARCH_VECTOR_QUERY_FAILED  => 'Vector similarity search failed.',
             self::SEARCH_ENTRY_NOT_FOUND      => 'The requested entry could not be found.',
             self::SEARCH_ENTRY_MISSING_URL    => 'Entry has no URL on this site and cannot be indexed.',
@@ -76,7 +76,7 @@ enum ErrorCode: string
             self::RATE_LIMIT_CONCURRENCY      => 'Too many concurrent requests. Try again in a moment.',
             self::RATE_LIMIT_BUDGET           => 'Daily AI cost budget exhausted. Try again later.',
             self::CONFIG_MISSING_API_KEY      => 'An API key is not configured. Please set it in plugin settings.',
-            self::UNKNOWN                     => 'Something went wrong. The administrator can find details in the AI Search log.',
+            self::UNKNOWN                     => 'Something went wrong. The administrator can find details in the Smart Search log.',
         };
     }
 }

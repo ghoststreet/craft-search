@@ -1,12 +1,12 @@
 <?php
 
-namespace ghoststreet\craftaisearch\helpers;
+namespace ghoststreet\craftsmartsearch\helpers;
 
 use Craft;
 use craft\web\Controller;
-use ghoststreet\craftaisearch\exceptions\AiSearchException;
-use ghoststreet\craftaisearch\exceptions\ErrorCode;
-use ghoststreet\craftaisearch\exceptions\RateLimitException;
+use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
+use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
+use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use Throwable;
 use yii\web\Response;
 
@@ -16,7 +16,7 @@ use yii\web\Response;
  * Strict error shape: { success: false, code, message, requestId?, retryAfter? }.
  * `message` is always the curated string from ErrorCode::message() — raw exception
  * text, HTTP client errors, and stack traces never appear in API responses; they
- * go to ai-search.log only.
+ * go to smart-search.log only.
  */
 final class ApiResponseHelper
 {
@@ -62,7 +62,7 @@ final class ApiResponseHelper
      */
     public static function jsonError(Controller $controller, Throwable $e, string $operation = 'API error', array $context = []): Response
     {
-        $status = $e instanceof AiSearchException ? $e->httpStatus() : 500;
+        $status = $e instanceof SmartSearchException ? $e->httpStatus() : 500;
         $response = $controller->asJson(self::error($e, $operation, $context))->setStatusCode($status);
 
         if ($e instanceof RateLimitException) {
@@ -84,7 +84,7 @@ final class ApiResponseHelper
             return [
                 'success' => false,
                 'code' => $code->value,
-                'message' => Craft::t('ai-search', $code->message()),
+                'message' => Craft::t('smart-search', $code->message()),
             ];
         }
 

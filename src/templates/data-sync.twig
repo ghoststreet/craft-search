@@ -5,7 +5,7 @@
 
 {% block content %}
     <h2>Content Indexing</h2>
-    <p class="light">AI Search automatically indexes your content when entries are saved. Use this page to view the current index status and rebuild it if needed.</p>
+    <p class="light">Smart Search automatically indexes your content when entries are saved. Use this page to view the current index status and rebuild it if needed.</p>
 
     <p class="light">All entries with valid URLs are indexed (excludes drafts and revisions), including matrix blocks and related content. Long content is automatically split into searchable chunks.</p>
 
@@ -14,13 +14,13 @@
     {% if setup.ready %}
         <h2>Index Statistics</h2>
 
-        {% include 'ai-search/_partials/index-stats-table' with {
+        {% include 'smart-search/_partials/index-stats-table' with {
             stats: stats,
             labels: { database: 'Database Status', entries: 'Indexed Entries', chunks: 'Total Chunks', lastUpdated: 'Last Updated' },
         } only %}
     {% else %}
         <h2>Finish Setup</h2>
-        <p class="light">Complete these steps to enable AI Search indexing. Each step links to where it can be fixed.</p>
+        <p class="light">Complete these steps to enable Smart Search indexing. Each step links to where it can be fixed.</p>
 
         <table class="data fullwidth collapsible">
             <tbody>
@@ -33,7 +33,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ cpUrl('ai-search/settings') }}">Configure your PostgreSQL credentials</a>
+                        <a href="{{ cpUrl('smart-search/settings') }}">Configure your PostgreSQL credentials</a>
                         {% if not setup.credentials %}
                             <div class="light smalltext">Host, database, user, and password are all required.</div>
                         {% endif %}
@@ -50,7 +50,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ cpUrl('ai-search/settings') }}">Connect to your vector database</a>
+                        <a href="{{ cpUrl('smart-search/settings') }}">Connect to your vector database</a>
                         {% if setup.credentials and not setup.connection and setup.error %}
                             <div class="light smalltext">{{ setup.error }}</div>
                         {% endif %}
@@ -67,7 +67,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ cpUrl('ai-search/settings') }}">Initialize the vector schema</a>
+                        <a href="{{ cpUrl('smart-search/settings') }}">Initialize the vector schema</a>
                         {% if setup.connection and not setup.schema %}
                             <div class="light smalltext">The vectors table was not found. Run the setup SQL from the Database settings tab.</div>
                         {% endif %}
@@ -82,7 +82,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ cpUrl('ai-search/settings') }}">Add your OpenAI API key</a>
+                        <a href="{{ cpUrl('smart-search/settings') }}">Add your OpenAI API key</a>
                         {% if not setup.openaiKey %}
                             <div class="light smalltext">Required to generate embeddings during indexing.</div>
                         {% endif %}
@@ -112,7 +112,7 @@
 
     <form method="post">
         {{ csrfInput() }}
-        {{ actionInput('ai-search/data-sync/wipe-and-reindex') }}
+        {{ actionInput('smart-search/data-sync/wipe-and-reindex') }}
 
         <div class="buttons">
             <button type="submit"

@@ -3,7 +3,7 @@
 
     Params:
         rows           iterable
-        entryUrlPath   string   cpUrl path for the detail link, e.g. 'ai-search/debug/entry'
+        entryUrlPath   string   cpUrl path for the detail link, e.g. 'smart-search/debug/entry'
         labels         object   { title, section, status, chunks, lastIndexed,
                                   indexed, stale, notIndexed, emptyMessage, untitled }
 #}
@@ -55,7 +55,7 @@
                     <td class="thin centeralign">
                         <form method="post" data-craftsearch-reindex="entry" data-element-id="{{ row.elementId }}" data-site-id="{{ row.siteId }}" style="display:inline">
                             {{ csrfInput() }}
-                            {{ actionInput('ai-search/index/reindex-entry') }}
+                            {{ actionInput('smart-search/index/reindex-entry') }}
                             {{ redirectInput(craft.app.request.url) }}
                             <input type="hidden" name="elementId" value="{{ row.elementId }}">
                             <input type="hidden" name="siteId" value="{{ row.siteId }}">

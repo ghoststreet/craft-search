@@ -1,10 +1,10 @@
 (function () {
     'use strict';
-    window.CraftSearch = window.CraftSearch || {};
-    window.CraftSearch.core = window.CraftSearch.core || {};
-    window.CraftSearch.components = window.CraftSearch.components || {};
-    window.CraftSearch.pages = window.CraftSearch.pages || {};
-    window.CraftSearch.config = window.CraftSearch.config || {};
+    window.SmartSearch = window.SmartSearch || {};
+    window.SmartSearch.core = window.SmartSearch.core || {};
+    window.SmartSearch.components = window.SmartSearch.components || {};
+    window.SmartSearch.pages = window.SmartSearch.pages || {};
+    window.SmartSearch.config = window.SmartSearch.config || {};
 
     var CONFIRM_ATTR = 'data-craftsearch-confirm';
 

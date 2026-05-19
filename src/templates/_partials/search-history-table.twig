@@ -4,11 +4,11 @@
 
     Params:
         items     iterable of history rows
-        urlPath   string  cpUrl base, e.g. 'ai-search/history' or 'ai-search/insights'
+        urlPath   string  cpUrl base, e.g. 'smart-search/history' or 'smart-search/insights'
 
     Usage:
-        {% include 'ai-search/_partials/search-history-table' with {
-            items: page.items, urlPath: 'ai-search/history'
+        {% include 'smart-search/_partials/search-history-table' with {
+            items: page.items, urlPath: 'smart-search/history'
         } only %}
 #}
 {% set cachedTitle = cachedTitle ?? 'Embedding served from cache' %}

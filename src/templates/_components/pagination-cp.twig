@@ -5,14 +5,14 @@
     Params:
         currentPage  int    current page number
         totalPages   int    total number of pages
-        path         string cpUrl path (e.g. 'ai-search/history')
+        path         string cpUrl path (e.g. 'smart-search/history')
         baseParams   object query params to preserve across pages
         navClass     string optional extra class on the <nav>
 
     Usage:
-        {% include 'ai-search/_components/pagination-cp' with {
+        {% include 'smart-search/_components/pagination-cp' with {
             currentPage: page.page, totalPages: page.pages,
-            path: 'ai-search/history',
+            path: 'smart-search/history',
             baseParams: { type: typeFilter, days: daysFilter, ... }
         } only %}
 #}

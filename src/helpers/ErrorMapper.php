@@ -1,27 +1,27 @@
 <?php
 
-namespace ghoststreet\craftaisearch\helpers;
+namespace ghoststreet\craftsmartsearch\helpers;
 
 use Craft;
-use ghoststreet\craftaisearch\exceptions\AiSearchException;
-use ghoststreet\craftaisearch\exceptions\ErrorCode;
+use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
+use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 use Throwable;
 
 /**
  * Maps any Throwable to a stable ErrorCode. API responses serialize the code
  * value only; server-rendered surfaces (CP flashes, Twig views) can use
- * translatedMessage() to localize via Craft::t('ai-search', ...).
+ * translatedMessage() to localize via Craft::t('smart-search', ...).
  */
 final class ErrorMapper
 {
     public static function codeFor(Throwable $e): ErrorCode
     {
-        return $e instanceof AiSearchException ? $e->errorCode() : ErrorCode::UNKNOWN;
+        return $e instanceof SmartSearchException ? $e->errorCode() : ErrorCode::UNKNOWN;
     }
 
     public static function translatedMessage(Throwable $e): string
     {
-        return Craft::t('ai-search', self::codeFor($e)->message());
+        return Craft::t('smart-search', self::codeFor($e)->message());
     }
 
     /**
@@ -32,6 +32,6 @@ final class ErrorMapper
     {
         $code = self::codeFor($e);
         Logger::exception($e, $operation, $context + ['code' => $code->value]);
-        return Craft::t('ai-search', $code->message());
+        return Craft::t('smart-search', $code->message());
     }
 }

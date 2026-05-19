@@ -3,7 +3,7 @@
 
     Params: see index.twig pass-through.
 #}
-{% include 'ai-search/_dashboard/_kpi-quality' with {
+{% include 'smart-search/_dashboard/_kpi-quality' with {
     aggregates: aggregates,
     seriesSearches: seriesSearches,
     seriesZero: seriesZero,
@@ -37,7 +37,7 @@
             </tbody>
         </table>
         {% if topQueries|length %}
-            <p class="dash-cta"><a class="go" href="{{ cpUrl('ai-search/insights') }}">View all queries</a></p>
+            <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights') }}">View all queries</a></p>
         {% endif %}
     </div>
 
@@ -71,6 +71,6 @@
     </div>
 </div>
 
-{% include 'ai-search/_dashboard/_trending-queries' with { trendingQueries: trendingQueries } only %}
+{% include 'smart-search/_dashboard/_trending-queries' with { trendingQueries: trendingQueries } only %}
 
-{% include 'ai-search/_dashboard/_recommendations' with { recommendations: recommendations, scope: 'quality' } only %}
+{% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, scope: 'quality' } only %}

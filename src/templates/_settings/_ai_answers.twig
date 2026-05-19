@@ -5,7 +5,7 @@
 {% namespace 'settings' %}
     {{ forms.selectField({
         label: 'Answer model',
-        instructions: 'OpenAI model that generates summaries for /api/rag-search.',
+        instructions: 'OpenAI model that generates summaries for /api/smart-search/rag.',
         id: 'ragModel', name: 'ragModel',
         value: settings.ragModel,
         options: [{ label: 'gpt-5.4-nano', value: 'gpt-5.4-nano' }],
@@ -39,7 +39,7 @@
         value: settings.costBudgetDailyGlobal, type: 'number', step: '0.01', min: '0',
         errors: settings.getErrors('costBudgetDailyGlobal'),
     }) }}
-    <p class="light">View current usage and spend on the <a href="{{ url('ai-search/insights') }}">Insights</a> page.</p>
+    <p class="light">View current usage and spend on the <a href="{{ url('smart-search/insights') }}">Insights</a> page.</p>
 
     {{ forms.textField({
         label: 'AI answers per minute (per IP)',

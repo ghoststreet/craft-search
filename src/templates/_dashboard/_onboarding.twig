@@ -6,13 +6,13 @@
         stats     { isConnected, entryCount }
 #}
 {% set steps = [
-    { done: settings.openaiApiKey ? true : false, label: 'Configure your OpenAI API key', hint: 'Generate embeddings and power RAG search.', cta: 'ai-search/settings' },
-    { done: stats.isConnected, label: 'Connect your PostgreSQL / pgvector database', hint: 'Stores embeddings for fast semantic lookup.', cta: 'ai-search/settings' },
-    { done: stats.isConnected and stats.entryCount > 0, label: 'Run your first index', hint: 'Generates vectors for every published entry.', cta: 'ai-search/index' },
+    { done: settings.openaiApiKey ? true : false, label: 'Configure your OpenAI API key', hint: 'Generate embeddings and power RAG search.', cta: 'smart-search/settings' },
+    { done: stats.isConnected, label: 'Connect your PostgreSQL / pgvector database', hint: 'Stores embeddings for fast semantic lookup.', cta: 'smart-search/settings' },
+    { done: stats.isConnected and stats.entryCount > 0, label: 'Run your first index', hint: 'Generates vectors for every published entry.', cta: 'smart-search/index' },
 ] %}
 
 <div class="pane">
-    <h2 class="dash-lede">Finish setting up AI Search</h2>
+    <h2 class="dash-lede">Finish setting up Smart Search</h2>
     <p class="light dash-lede">Three steps separate you from intelligent, AI-powered search on your Craft site.</p>
 
     <ol class="onboarding-list">

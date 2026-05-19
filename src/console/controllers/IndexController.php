@@ -1,14 +1,14 @@
 <?php
 
-namespace ghoststreet\craftaisearch\console\controllers;
+namespace ghoststreet\craftsmartsearch\console\controllers;
 
 use Craft;
 use craft\console\Controller;
 use craft\elements\Entry;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\DatabaseException;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\jobs\IndexEntryJob;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
 use yii\console\ExitCode;
 use yii\helpers\Console;
 
@@ -52,11 +52,11 @@ class IndexController extends Controller
         $this->stdout("Starting bulk indexing...\n", Console::FG_GREEN);
 
         try {
-            AiSearch::getInstance()->databaseService->preflightSchema();
+            SmartSearch::getInstance()->databaseService->preflightSchema();
 
             if ($this->wipe) {
                 $this->stdout("Wiping existing vectors...\n");
-                $count = AiSearch::getInstance()->databaseService->clearAllVectors();
+                $count = SmartSearch::getInstance()->databaseService->clearAllVectors();
                 $this->stdout("Deleted {$count} existing vectors.\n");
             } else {
                 $this->stdout("Incremental mode: existing vectors will be updated.\n");

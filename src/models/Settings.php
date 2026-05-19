@@ -1,12 +1,12 @@
 <?php
 
-namespace ghoststreet\craftaisearch\models;
+namespace ghoststreet\craftsmartsearch\models;
 
 use craft\base\Model;
 use craft\helpers\App;
 
 /**
- * ai-search settings
+ * smart-search settings
  */
 class Settings extends Model
 {

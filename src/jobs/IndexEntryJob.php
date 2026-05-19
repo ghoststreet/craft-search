@@ -1,14 +1,14 @@
 <?php
 
-namespace ghoststreet\craftaisearch\jobs;
+namespace ghoststreet\craftsmartsearch\jobs;
 
 use Craft;
 use craft\elements\Entry;
 use craft\i18n\Translation;
 use craft\queue\BaseJob;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\SearchException;
-use ghoststreet\craftaisearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\exceptions\SearchException;
+use ghoststreet\craftsmartsearch\helpers\Logger;
 
 /**
  * Queue job to index a single entry for AI search.
@@ -39,7 +39,7 @@ class IndexEntryJob extends BaseJob
 
         // Status may have flipped between enqueue and execution.
         if ($entry->getStatus() === Entry::STATUS_DISABLED) {
-            AiSearch::getInstance()->embeddingService->deleteVector($this->entryId, $this->siteId);
+            SmartSearch::getInstance()->embeddingService->deleteVector($this->entryId, $this->siteId);
             Logger::info('Skipped indexing disabled entry; removed any existing vectors', [
                 'entryId' => $this->entryId,
                 'siteId' => $this->siteId,
@@ -48,7 +48,7 @@ class IndexEntryJob extends BaseJob
             return;
         }
 
-        AiSearch::getInstance()->embeddingService->indexElement($entry);
+        SmartSearch::getInstance()->embeddingService->indexElement($entry);
         Logger::info('Indexed entry via job', ['entryId' => $this->entryId]);
     }
 
@@ -62,7 +62,7 @@ class IndexEntryJob extends BaseJob
 
         $title = $entry?->title ?: "#{$this->entryId}";
 
-        return Translation::prep('ai-search', 'AI search: indexing “{title}”', [
+        return Translation::prep('smart-search', 'AI search: indexing “{title}”', [
             'title' => $title,
         ]);
     }

@@ -1,15 +1,15 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use craft\web\Controller;
-use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
+use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
 use Throwable;
 use yii\base\Action;
 use yii\web\Response;
 
 /**
- * Base controller for AI Search endpoints. Generates a per-request correlation
+ * Base controller for Smart Search endpoints. Generates a per-request correlation
  * ID and exposes a typed JSON error helper that always includes it.
  */
 abstract class BaseApiController extends Controller

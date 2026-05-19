@@ -1,14 +1,14 @@
 <?php
 
-namespace ghoststreet\craftaisearch\controllers;
+namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\web\Controller;
-use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\web\Response;
 
 /**
- * Aggregator for the AI Search dashboard. Pulls daily series, index coverage,
+ * Aggregator for the Smart Search dashboard. Pulls daily series, index coverage,
  * budget consumption, top/zero/trending/slow queries, recent errors, and
  * recommendations — all honoring a global `range` (days) query param. Heavy
  * coverage-by-site lookup is cached for 60s.
@@ -46,7 +46,7 @@ class DashboardController extends Controller
             $tab = self::DEFAULT_TAB;
         }
 
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
         $settings = $plugin->getSettings();
         $stats = $plugin->databaseService->getStatsSafe();
 
@@ -93,7 +93,7 @@ class DashboardController extends Controller
             && (bool)($stats['isConnected'] ?? false)
             && (int)($stats['entryCount'] ?? 0) > 0;
 
-        return $this->renderTemplate('ai-search/index', [
+        return $this->renderTemplate('smart-search/index', [
             'plugin' => $plugin,
             'settings' => $settings,
             'stats' => $stats,

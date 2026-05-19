@@ -1,9 +1,9 @@
 <?php
 
-namespace ghoststreet\craftaisearch\helpers;
+namespace ghoststreet\craftsmartsearch\helpers;
 
 use Craft;
-use ghoststreet\craftaisearch\exceptions\ErrorCode;
+use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 
 /**
  * Helper for extracting and validating common request parameters.
@@ -116,7 +116,7 @@ final class RequestParameterExtractor
         return [
             'success' => false,
             'code' => $code->value,
-            'message' => Craft::t('ai-search', $code->message()),
+            'message' => Craft::t('smart-search', $code->message()),
         ];
     }
 }

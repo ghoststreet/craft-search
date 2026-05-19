@@ -1,10 +1,10 @@
 <?php
 
-namespace ghoststreet\craftaisearch\exceptions;
+namespace ghoststreet\craftsmartsearch\exceptions;
 
 use Throwable;
 
-class SearchException extends AiSearchException
+class SearchException extends SmartSearchException
 {
     public static function semanticSearchFailed(string $reason, Throwable $previous): self
     {

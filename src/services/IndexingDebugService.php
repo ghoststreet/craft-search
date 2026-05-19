@@ -1,18 +1,18 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\elements\Entry;
-use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\helpers\Logger;
-use ghoststreet\craftaisearch\helpers\TokenEstimator;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
 use yii\base\Component;
 
 /**
  * Read-only inspector for the indexing pipeline.
  *
- * Powers the AI Search debug view: enumerates all entries in the configured
+ * Powers the Smart Search debug view: enumerates all entries in the configured
  * indexable sections, cross-references them with stored vectors, and replays
  * per-field extraction (without writing to the DB) so we can audit exactly
  * what the indexer sees.
@@ -51,7 +51,7 @@ class IndexingDebugService extends Component
 
         $entries = $query->limit(null)->all();
 
-        $summary = AiSearch::getInstance()->databaseService->getIndexedSummary($siteId);
+        $summary = SmartSearch::getInstance()->databaseService->getIndexedSummary($siteId);
 
         $rows = [];
         $counts = [
@@ -130,7 +130,7 @@ class IndexingDebugService extends Component
                 ->all();
 
             try {
-                $summary = AiSearch::getInstance()->databaseService->getIndexedSummary($site->id);
+                $summary = SmartSearch::getInstance()->databaseService->getIndexedSummary($site->id);
             } catch (\Throwable $e) {
                 Logger::exception($e, 'coverageBySite', ['siteId' => $site->id]);
                 $summary = [];
@@ -189,7 +189,7 @@ class IndexingDebugService extends Component
             return null;
         }
 
-        $plugin = AiSearch::getInstance();
+        $plugin = SmartSearch::getInstance();
         $fields = $plugin->embeddingService->inspectFieldsFromLayout($entry);
         $chunks = $plugin->databaseService->getVectorsForElement($elementId, $siteId);
 

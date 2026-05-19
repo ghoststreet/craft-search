@@ -1,10 +1,10 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\helpers\UrlHelper;
-use ghoststreet\craftaisearch\AiSearch;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\base\Component;
 
 /**
@@ -43,7 +43,7 @@ class RecommendationsService extends Component
                     sprintf('$%.4f of $%.2f spent today. New RAG requests will be rejected at 100%%.',
                         $budget['spent'], $budget['cap']),
                     'Adjust budget',
-                    'ai-search/settings#budgets'
+                    'smart-search/settings#budgets'
                 );
             } elseif ($ratio >= 0.75) {
                 $out[] = $this->advisory(
@@ -51,7 +51,7 @@ class RecommendationsService extends Component
                     'Daily cost budget at ' . round($ratio * 100) . '%',
                     sprintf('$%.4f of $%.2f spent today.', $budget['spent'], $budget['cap']),
                     'Adjust budget',
-                    'ai-search/settings#budgets'
+                    'smart-search/settings#budgets'
                 );
             } elseif (!empty($budget['etaDays']) && $budget['etaDays'] < 7) {
                 $out[] = $this->advisory(
@@ -59,7 +59,7 @@ class RecommendationsService extends Component
                     'Projected to hit cap in ' . $budget['etaDays'] . ' days',
                     'Based on 7-day burn rate. Raise the daily cap or reduce RAG traffic if this is unexpected.',
                     'Adjust budget',
-                    'ai-search/settings#budgets'
+                    'smart-search/settings#budgets'
                 );
             }
         }
@@ -81,7 +81,7 @@ class RecommendationsService extends Component
                     "{$totalStale} entries need reindex",
                     'Entries have changed since their vectors were generated. Run a sync to refresh.',
                     'Open Index sync',
-                    'ai-search/index'
+                    'smart-search/index'
                 );
             }
             if ($totalNotIndexed > 0 && ($totalNotIndexed / $totalAll) > 0.1) {
@@ -90,7 +90,7 @@ class RecommendationsService extends Component
                     "{$totalNotIndexed} entries not yet indexed",
                     'These entries are in your indexable sections but have no stored vectors.',
                     'View entries',
-                    'ai-search/index'
+                    'smart-search/index'
                 );
             }
         }
@@ -104,7 +104,7 @@ class RecommendationsService extends Component
                         'Low embedding cache hit rate',
                         'Only ' . round($context['cacheHitRate'] * 100) . '% of queries hit the cache. Consider raising the cache TTL to reduce embedding cost.',
                         'Tune cache',
-                        'ai-search/settings#cache'
+                        'smart-search/settings#cache'
                     );
                 }
             }
@@ -117,7 +117,7 @@ class RecommendationsService extends Component
                     round($context['zeroResultRate'] * 100) . '% of recent searches return zero results',
                     'Inspect top zero-result queries — they often indicate missing content or overly strict thresholds.',
                     'View zero-results',
-                    'ai-search/insights?tab=zero-results',
+                    'smart-search/insights?tab=zero-results',
                     self::CAT_QUALITY
                 );
             }
@@ -146,19 +146,19 @@ class RecommendationsService extends Component
                     round($errors / $searches * 100) . '% error rate',
                     "{$errors} of {$searches} recent searches errored. Check the History errors view.",
                     'View errors',
-                    'ai-search/insights?tab=history&errorsOnly=1'
+                    'smart-search/insights?tab=history&errorsOnly=1'
                 );
             }
         }
 
-        $settings = AiSearch::getInstance()->getSettings();
+        $settings = SmartSearch::getInstance()->getSettings();
         if (empty($settings->getOpenaiApiKey())) {
             $out[] = $this->advisory(
                 self::LEVEL_CRIT,
                 'OpenAI API key is not configured',
                 'Search and indexing will fail until a key is set.',
                 'Open settings',
-                'ai-search/settings'
+                'smart-search/settings'
             );
         }
 

@@ -1,57 +1,57 @@
 {% extends "_layouts/cp" %}
 
-{% set title = 'Indexing Debug'|t('ai-search') %}
+{% set title = 'Indexing Debug'|t('smart-search') %}
 {% set fullPageForm = false %}
 
 {% set crumbs = [
-    { label: 'AI Search', url: cpUrl('ai-search') },
+    { label: 'Smart Search', url: cpUrl('smart-search') },
 ] %}
 
 {% set counts = result.counts ?? { indexed: 0, stale: 0, 'not-indexed': 0, total: result.total } %}
 {% set totalPages = (result.total / result.pageSize)|round(0, 'ceil') %}
 
 {% set toolbarLabels = {
-    site: 'Site'|t('ai-search'),
-    section: 'Section'|t('ai-search'),
-    status: 'Status'|t('ai-search'),
-    all: 'All'|t('ai-search'),
-    allSections: 'All sections'|t('ai-search'),
-    indexed: 'Indexed'|t('ai-search'),
-    stale: 'Stale'|t('ai-search'),
-    notIndexed: 'Not indexed'|t('ai-search'),
-    filter: 'Filter'|t('ai-search'),
+    site: 'Site'|t('smart-search'),
+    section: 'Section'|t('smart-search'),
+    status: 'Status'|t('smart-search'),
+    all: 'All'|t('smart-search'),
+    allSections: 'All sections'|t('smart-search'),
+    indexed: 'Indexed'|t('smart-search'),
+    stale: 'Stale'|t('smart-search'),
+    notIndexed: 'Not indexed'|t('smart-search'),
+    filter: 'Filter'|t('smart-search'),
 } %}
 
 {% set tableLabels = {
-    title: 'Title'|t('ai-search'),
-    section: 'Section'|t('ai-search'),
-    status: 'Status'|t('ai-search'),
-    chunks: 'Chunks'|t('ai-search'),
-    lastIndexed: 'Last indexed'|t('ai-search'),
-    indexed: 'Indexed'|t('ai-search'),
-    stale: 'Stale'|t('ai-search'),
-    notIndexed: 'Not indexed'|t('ai-search'),
-    emptyMessage: 'No entries match these filters.'|t('ai-search'),
-    untitled: '(untitled)'|t('ai-search'),
+    title: 'Title'|t('smart-search'),
+    section: 'Section'|t('smart-search'),
+    status: 'Status'|t('smart-search'),
+    chunks: 'Chunks'|t('smart-search'),
+    lastIndexed: 'Last indexed'|t('smart-search'),
+    indexed: 'Indexed'|t('smart-search'),
+    stale: 'Stale'|t('smart-search'),
+    notIndexed: 'Not indexed'|t('smart-search'),
+    emptyMessage: 'No entries match these filters.'|t('smart-search'),
+    untitled: '(untitled)'|t('smart-search'),
 } %}
 
 {% set statsLabels = {
-    total: 'Total'|t('ai-search'),
-    indexed: 'Indexed'|t('ai-search'),
-    stale: 'Stale'|t('ai-search'),
-    notIndexed: 'Not indexed'|t('ai-search'),
+    total: 'Total'|t('smart-search'),
+    indexed: 'Indexed'|t('smart-search'),
+    stale: 'Stale'|t('smart-search'),
+    notIndexed: 'Not indexed'|t('smart-search'),
 } %}
 
 {% block content %}
     {% if error %}
         <div class="readable">
             <blockquote class="note warning">
-                <p><strong>{{ 'Database error.'|t('ai-search') }}</strong> {{ error }}</p>
+                <p><strong>{{ 'Database error.'|t('smart-search') }}</strong> {{ error }}</p>
             </blockquote>
         </div>
     {% endif %}
 
-    {% include 'ai-search/_partials/entries-toolbar' with {
+    {% include 'smart-search/_partials/entries-toolbar' with {
         filters: filters,
         sites: sites,
         sections: sections,
@@ -59,20 +59,20 @@
         labels: toolbarLabels,
     } only %}
 
-    {% include 'ai-search/_partials/entries-stats' with { counts: counts, labels: statsLabels } only %}
+    {% include 'smart-search/_partials/entries-stats' with { counts: counts, labels: statsLabels } only %}
 
-    {% include 'ai-search/_partials/entries-table' with {
+    {% include 'smart-search/_partials/entries-table' with {
         rows: result.rows,
-        entryUrlPath: 'ai-search/debug/entry',
+        entryUrlPath: 'smart-search/debug/entry',
         labels: tableLabels,
     } only %}
 
-    {% include 'ai-search/_components/pagination-path' with {
+    {% include 'smart-search/_components/pagination-path' with {
         currentPage: result.page,
         totalPages: totalPages,
         params: filters,
-        prevLabel: 'Prev'|t('ai-search'),
-        nextLabel: 'Next'|t('ai-search'),
-        pageLabel: 'Page {p} of {t}'|t('ai-search', { p: result.page, t: totalPages }),
+        prevLabel: 'Prev'|t('smart-search'),
+        nextLabel: 'Next'|t('smart-search'),
+        pageLabel: 'Page {p} of {t}'|t('smart-search', { p: result.page, t: totalPages }),
     } only %}
 {% endblock %}

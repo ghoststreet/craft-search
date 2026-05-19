@@ -1,9 +1,9 @@
 <?php
 
-namespace ghoststreet\craftaisearch\services;
+namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftaisearch\helpers\TextValidator;
-use ghoststreet\craftaisearch\helpers\TokenEstimator;
+use ghoststreet\craftsmartsearch\helpers\TextValidator;
+use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
 
 /**
  * Pure prompt-assembly math for RAG.

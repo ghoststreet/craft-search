@@ -14,16 +14,16 @@
     vertical-align: 1px;
 }
 .recommendation-list__level--info {
-    background: var(--craft-search-info-bg);
-    color: var(--craft-search-info-fg);
+    background: var(--smart-search-info-bg);
+    color: var(--smart-search-info-fg);
 }
 .recommendation-list__level--warn {
-    background: var(--craft-search-warn-bg);
-    color: var(--craft-search-warn-fg);
+    background: var(--smart-search-warn-bg);
+    color: var(--smart-search-warn-fg);
 }
 .recommendation-list__level--crit {
-    background: var(--craft-search-danger-bg);
-    color: var(--craft-search-danger-fg);
+    background: var(--smart-search-danger-bg);
+    color: var(--smart-search-danger-fg);
 }
 .recommendation-list__body { color: var(--medium-text-color); }
 .recommendation-list__cta { margin-left: 6px; }
