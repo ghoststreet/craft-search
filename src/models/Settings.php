@@ -16,7 +16,7 @@ class Settings extends Model
     public const SCENARIO_INDEXING      = 'indexing';
     public const SCENARIO_HYBRID_SEARCH = 'hybridSearch';
     public const SCENARIO_AI_ANSWERS    = 'aiAnswers';
-    public const SCENARIO_OPERATIONS    = 'operations';
+    public const SCENARIO_ADVANCED    = 'advanced';
 
     public ?string $openaiApiKey = null;
     public ?string $apiToken = null;
@@ -101,7 +101,7 @@ class Settings extends Model
             'rateLimitRagPerMinute', 'rateLimitRagPerHour',
             'ragConcurrencyPerIp', 'ragConcurrencyGlobal',
         ],
-        self::SCENARIO_OPERATIONS    => [
+        self::SCENARIO_ADVANCED    => [
             'apiToken', 'allowedOrigins',
             'historyRetentionDays',
         ],
@@ -117,7 +117,7 @@ class Settings extends Model
         'tab-indexing'      => self::SCENARIO_INDEXING,
         'tab-hybrid-search' => self::SCENARIO_HYBRID_SEARCH,
         'tab-ai-answers'    => self::SCENARIO_AI_ANSWERS,
-        'tab-operations'    => self::SCENARIO_OPERATIONS,
+        'tab-advanced'      => self::SCENARIO_ADVANCED,
     ];
 
     /**
@@ -156,7 +156,7 @@ class Settings extends Model
         $indexing     = [self::SCENARIO_DEFAULT, self::SCENARIO_INDEXING];
         $hybridSearch = [self::SCENARIO_DEFAULT, self::SCENARIO_HYBRID_SEARCH];
         $aiAnswers    = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWERS];
-        $operations   = [self::SCENARIO_DEFAULT, self::SCENARIO_OPERATIONS];
+        $operations   = [self::SCENARIO_DEFAULT, self::SCENARIO_ADVANCED];
 
         return [
             // OpenAI API key — Connections
@@ -240,13 +240,13 @@ class Settings extends Model
             [['rateLimitRagPerMinute', 'rateLimitRagPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $aiAnswers],
             [['ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $aiAnswers],
 
-            // Operations — API access
+            // Advanced — API access
             [['apiToken'], 'string', 'on' => $operations],
             [['apiToken'], 'validateOptionalEnvSecret', 'on' => $operations],
             [['allowedOrigins'], 'string', 'on' => $operations],
             [['allowedOrigins'], 'validateAllowedOrigins', 'on' => $operations],
 
-            // Operations — diagnostics
+            // Advanced — diagnostics
             [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365, 'on' => $operations],
             [['historyRetentionDays'], 'default', 'value' => 30],
         ];

@@ -20,7 +20,7 @@ class RecommendationsService extends Component
     public const LEVEL_WARN = 'warn';
     public const LEVEL_CRIT = 'crit';
 
-    public const CAT_OPS = 'ops';
+    public const CAT_ADVANCED = 'advanced';
     public const CAT_QUALITY = 'quality';
 
     /**
@@ -165,7 +165,7 @@ class RecommendationsService extends Component
         return $out;
     }
 
-    private function advisory(string $level, string $title, string $body, ?string $ctaLabel, ?string $ctaUrl, string $category = self::CAT_OPS): array
+    private function advisory(string $level, string $title, string $body, ?string $ctaLabel, ?string $ctaUrl, string $category = self::CAT_ADVANCED): array
     {
         return [
             'level' => $level,

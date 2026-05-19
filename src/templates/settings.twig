@@ -8,7 +8,7 @@
     'tab-indexing':      { label: 'Indexing',      url: '#tab-indexing',      class: settings.errorsForTab('tab-indexing')      ? 'error' : '' },
     'tab-hybrid-search': { label: 'Hybrid Search', url: '#tab-hybrid-search', class: settings.errorsForTab('tab-hybrid-search') ? 'error' : '' },
     'tab-ai-answers':    { label: 'AI Answers',    url: '#tab-ai-answers',    class: settings.errorsForTab('tab-ai-answers')    ? 'error' : '' },
-    'tab-operations':    { label: 'Operations',    url: '#tab-operations',    class: settings.errorsForTab('tab-operations')    ? 'error' : '' },
+    'tab-advanced':    { label: 'Advanced',     url: '#tab-advanced',    class: settings.errorsForTab('tab-advanced')    ? 'error' : '' },
 } %}
 
 {% block content %}
@@ -31,8 +31,8 @@
         {% include 'ai-search/_settings/_ai_answers' %}
     </div>
 
-    <div id="tab-operations" class="hidden">
-        {% include 'ai-search/_settings/_operations' %}
+    <div id="tab-advanced" class="hidden">
+        {% include 'ai-search/_settings/_advanced' %}
     </div>
 {% endblock %}
 

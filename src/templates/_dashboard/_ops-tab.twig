@@ -1,5 +1,5 @@
 {#
-    Operations tab body — admin/ops focused.
+    Advanced tab body — admin/ops focused.
 #}
 {% include 'ai-search/_dashboard/_kpi-ops' with {
     aggregates: aggregates,
@@ -56,4 +56,4 @@
 
 {% include 'ai-search/_dashboard/_slow-queries' with { slowQueries: slowQueries } only %}
 
-{% include 'ai-search/_dashboard/_recommendations' with { recommendations: recommendations, scope: 'ops' } only %}
+{% include 'ai-search/_dashboard/_recommendations' with { recommendations: recommendations, scope: 'advanced' } only %}

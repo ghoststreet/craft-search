@@ -4,12 +4,12 @@
 
     Params:
         recommendations  iterable of { level, category, title, body, cta? }
-        scope            optional 'quality' | 'ops' — when set, only show advisories whose category matches
+        scope            optional 'quality' | 'advanced' — when set, only show advisories whose category matches
 #}
 {% set scope = scope ?? null %}
 {% set scoped = scope is null
     ? recommendations
-    : recommendations|filter(r => (r.category ?? 'ops') == scope) %}
+    : recommendations|filter(r => (r.category ?? 'advanced') == scope) %}
 
 {% set actionRequired = scoped|filter(r => r.level == 'warn') %}
 {% set suggestions = scoped|filter(r => r.level == 'info') %}

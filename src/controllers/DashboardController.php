@@ -14,7 +14,7 @@ use yii\web\Response;
  * coverage-by-site lookup is cached for 60s.
  *
  * NOTE: the whole plugin is admin-only today (subnav + every controller).
- * The Quality vs Operations tab split is design intent for when per-permission
+ * The Quality vs Advanced tab split is design intent for when per-permission
  * gating lands; for now both tabs share the admin gate.
  */
 class DashboardController extends Controller
@@ -22,7 +22,7 @@ class DashboardController extends Controller
     private const CACHE_TTL = 60;
     private const ALLOWED_RANGES = [7, 30, 90];
     private const DEFAULT_RANGE = 30;
-    private const ALLOWED_TABS = ['quality', 'ops'];
+    private const ALLOWED_TABS = ['quality', 'advanced'];
     private const DEFAULT_TAB = 'quality';
 
     /** Minimum number of searches before a rate or qualitative label is meaningful. */

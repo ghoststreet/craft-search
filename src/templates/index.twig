@@ -9,7 +9,7 @@
 {% if setupComplete ?? false %}
     {% set tabs = {
         quality: { label: 'Search Quality'|t('ai-search'), url: cpUrl('ai-search', { range: range, tab: 'quality' }) },
-        ops: { label: 'Operations'|t('ai-search'), url: cpUrl('ai-search', { range: range, tab: 'ops' }) },
+        advanced: { label: 'Advanced'|t('ai-search'), url: cpUrl('ai-search', { range: range, tab: 'advanced' }) },
     } %}
     {% set selectedTab = tab %}
 {% endif %}
@@ -63,7 +63,7 @@
             {% include 'ai-search/_dashboard/_range-picker' with { range: range, allowedRanges: allowedRanges, tab: tab } only %}
         </div>
 
-        {% if tab == 'ops' %}
+        {% if tab == 'advanced' %}
             {% include 'ai-search/_dashboard/_ops-tab' with _context only %}
         {% else %}
             {% include 'ai-search/_dashboard/_quality-tab' with _context only %}
