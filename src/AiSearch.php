@@ -21,6 +21,7 @@ use ghoststreet\craftaisearch\assets\DebugAsset;
 use ghoststreet\craftaisearch\assets\HistoryAsset;
 use ghoststreet\craftaisearch\assets\IndexMgmtAsset;
 use ghoststreet\craftaisearch\assets\InsightsAsset;
+use ghoststreet\craftaisearch\assets\PreviewAsset;
 use ghoststreet\craftaisearch\assets\SettingsAsset;
 use ghoststreet\craftaisearch\jobs\DeleteEntryJob;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
@@ -160,6 +161,13 @@ class AiSearch extends Plugin
         }
         if ($connectionsConfigured) {
             $subNav['index'] = ['label' => 'Index', 'url' => 'ai-search/index'];
+
+            $stats = $this->databaseService->getStatsSafe();
+            $hasIndexedEntries = (int)($stats['entryCount'] ?? 0) > 0;
+
+            if ($hasIndexedEntries) {
+                $subNav['preview'] = ['label' => 'Preview', 'url' => 'ai-search/preview'];
+            }
         }
 
         if (Craft::$app->getConfig()->general->allowAdminChanges && Craft::$app->user->getIsAdmin()) {
@@ -256,6 +264,9 @@ class AiSearch extends Plugin
                 $event->rules['POST ai-search/insights/prune'] = 'ai-search/insights/prune';
                 $event->rules['POST ai-search/insights/clear'] = 'ai-search/insights/clear';
 
+                // Preview
+                $event->rules['ai-search/preview'] = 'ai-search/preview/index';
+
                 // Legacy redirects
                 $event->rules['ai-search/data-sync'] = 'ai-search/index/legacy-redirect';
                 $event->rules['ai-search/debug'] = 'ai-search/index/legacy-redirect';
@@ -297,6 +308,7 @@ class AiSearch extends Plugin
 
                 $view = Craft::$app->getView();
                 $map = [
+                    'ai-search/preview'    => PreviewAsset::class,
                     'ai-search/index-mgmt' => IndexMgmtAsset::class,
                     'ai-search/insights'   => InsightsAsset::class,
                     'ai-search/debug'      => DebugAsset::class,

@@ -1,0 +1,100 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Preview' %}
+{% set selectedSubnavItem = 'preview' %}
+
+{% block content %}
+<div data-craftsearch-target="preview-page"
+     data-craftsearch-config="{{ {
+         csrfTokenName: craft.app.config.general.csrfTokenName,
+         csrfTokenValue: craft.app.request.csrfToken,
+         siteId: craft.app.sites.currentSite.id,
+     }|json_encode }}">
+
+    {% if sites|length > 1 %}
+        <div class="toolbar">
+            <div class="flex">
+                <label for="preview-site" class="visually-hidden">Site</label>
+                <div class="select">
+                    <select id="preview-site" data-craftsearch-control="site-select">
+                        {% for site in sites %}
+                            <option value="{{ site.id }}"{% if site.id == craft.app.sites.currentSite.id %} selected{% endif %}>
+                                {{ site.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="preview-grid">
+
+        <div class="preview-col">
+            <div class="pane preview-col__pane">
+                <h2 class="preview-col__heading">Hybrid Search <span class="preview-badge preview-badge--hybrid">Semantic + BM25</span></h2>
+                <div class="preview-col__form">
+                    <input type="search" class="text" placeholder="Search…" autocomplete="off"
+                           data-craftsearch-control="hybrid-input">
+                    <button class="btn" data-craftsearch-control="hybrid-submit" aria-label="Search">
+                        <span data-icon="search" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <div class="preview-col__results" data-craftsearch-target="hybrid-results" role="region" hidden></div>
+                <div class="preview-col__error" data-craftsearch-target="hybrid-error" role="alert" hidden></div>
+            </div>
+        </div>
+
+        <div class="preview-col">
+            <div class="pane preview-col__pane">
+                <h2 class="preview-col__heading">RAG Search <span class="preview-badge preview-badge--rag">AI Summary</span></h2>
+                <div class="preview-col__form">
+                    <input type="search" class="text" placeholder="Search…" autocomplete="off"
+                           data-craftsearch-control="rag-input">
+                    <button class="btn" data-craftsearch-control="rag-submit" aria-label="Search">
+                        <span data-icon="search" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <div class="preview-col__summary" data-craftsearch-target="rag-summary" hidden></div>
+                <div class="preview-col__results" data-craftsearch-target="rag-results" role="region" hidden></div>
+                <div class="preview-col__error" data-craftsearch-target="rag-error" role="alert" hidden></div>
+            </div>
+        </div>
+
+        <div class="preview-col">
+            <div class="pane preview-col__pane">
+                <h2 class="preview-col__heading">Craft Search <span class="preview-badge preview-badge--craft">Native</span></h2>
+                <div class="preview-col__form">
+                    <input type="search" class="text" placeholder="Search…" autocomplete="off"
+                           data-craftsearch-control="craft-input">
+                    <button class="btn" data-craftsearch-control="craft-submit" aria-label="Search">
+                        <span data-icon="search" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <div class="preview-col__results" data-craftsearch-target="craft-results" role="region" hidden></div>
+                <div class="preview-col__error" data-craftsearch-target="craft-error" role="alert" hidden></div>
+            </div>
+        </div>
+
+    </div>
+
+    <template data-craftsearch-target="loading-tpl">
+        <div class="preview-col__loading">
+            <span class="preview-col__loading-spinner"></span>
+            Searching…
+        </div>
+    </template>
+
+    <template data-craftsearch-target="cite-tpl">
+        <a class="preview-col__cite" href="" target="_blank" rel="noopener" data-field="url"></a>
+    </template>
+
+    <template data-craftsearch-target="result-card-tpl">
+        <div class="preview-result-card">
+            <a class="preview-result-card__title" href="" target="_blank" rel="noopener" data-field="url"></a>
+            <p class="preview-result-card__excerpt" data-field="excerpt"></p>
+        </div>
+    </template>
+
+</div>
+{% endblock %}

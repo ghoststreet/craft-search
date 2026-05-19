@@ -8,11 +8,11 @@
   },
   "require": {
     "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-pdo_pgsql": "*",
     "craftcms/cms": "^5.0",
     "openai-php/client": "^0.18",
-    "pgvector/pgvector": "^0.2",
-    "ext-pdo": "*",
-    "ext-pdo_pgsql": "*"
+    "pgvector/pgvector": "^0.2"
   },
   "require-dev": {
     "craftcms/ecs": "dev-main",
